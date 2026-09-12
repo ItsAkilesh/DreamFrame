@@ -18,6 +18,7 @@ const baseScene: Scene = {
   toneTarget: "tense",
   characterIds: ["ch_1"],
   metrics: null,
+  modelAsset: null,
 };
 
 const baseAct: Act = { id: "act_1", title: "Act One", order: 1 };

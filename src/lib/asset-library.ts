@@ -6,7 +6,8 @@
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
-import { readdir, open } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { mkdir, readdir, open, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -98,12 +99,21 @@ export async function listLibraryAssets(category: AssetLibraryCategory): Promise
   const files = candidates.filter((_, index) => readable[index]);
 
   const cachedThumbnails = await listCachedThumbnailBaseNames(category);
+  // Original names can be supplied alongside hashed exports. Named exports
+  // keep their filenames; never invent semantic motion names for anonymous FBXs.
+  let animationNames: Record<string, string> = {};
+  if (category === "animation") {
+    try { animationNames = JSON.parse(await readFile(join(dir, "names.json"), "utf8")); } catch { /* optional metadata */ }
+  }
 
   return files.map(({ fileName, format }, index) => {
     const baseName = assetThumbnailBaseName(fileName);
     return {
       id: fileName,
-      name: `${CATEGORY_LABELS[category]} ${index + 1}`,
+      name: category === "animation"
+        ? (typeof animationNames[fileName] === "string" ? animationNames[fileName]
+          : /^[a-f0-9]{32}$/i.test(baseName) ? `Unnamed motion · ${baseName.slice(0, 8)}` : baseName)
+        : `${CATEGORY_LABELS[category]} ${index + 1}`,
       format,
       url: `/assets/library/${CATEGORY_DIRS[category]}/${fileName}`,
       previewUrl: cachedThumbnails.has(baseName)
@@ -111,6 +121,36 @@ export async function listLibraryAssets(category: AssetLibraryCategory): Promise
         : null,
     };
   });
+}
+
+// Saves an uploaded file straight into the shared library folder — this is
+// the whole "add it to the library" step for a user-driven upload, same as
+// manually dropping a file into public/assets/library/ is. The stored name
+// is a fresh random one (never the original filename): entries are numbered
+// for display (see listLibraryAssets), not named from disk, and a fresh name
+// avoids colliding with whatever else is already in the folder.
+export async function saveLibraryUpload(
+  category: AssetLibraryCategory,
+  originalFileName: string,
+  buffer: Buffer
+): Promise<LibraryAsset> {
+  const format = characterModelFormatFromFileName(originalFileName);
+  if (!format) {
+    throw new Error(`Unsupported file type — use one of: ${CHARACTER_MODEL_FORMATS.join(", ")}`);
+  }
+
+  const dir = join(LIBRARY_ROOT, CATEGORY_DIRS[category]);
+  await mkdir(dir, { recursive: true });
+  const storedFileName = `${Date.now()}-${randomBytes(4).toString("hex")}.${format}`;
+  await writeFile(join(dir, storedFileName), buffer);
+
+  return {
+    id: storedFileName,
+    name: originalFileName.replace(/\.[^.]+$/, ""),
+    format,
+    url: `/assets/library/${CATEGORY_DIRS[category]}/${storedFileName}`,
+    previewUrl: null,
+  };
 }
 
 // Re-derives a single entry from disk by id (its filename) — used when a

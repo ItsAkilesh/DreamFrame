@@ -20,6 +20,18 @@ interface LeanId {
   _id: { toString(): string };
 }
 
+interface LeanModelAsset {
+  fileName: string;
+  format: string;
+  url: string;
+  uploadedAt: Date;
+  previewUrl: string | null;
+}
+
+function serializeModelAsset(asset: LeanModelAsset | null): Scene["modelAsset"] {
+  return asset ? { ...asset, uploadedAt: asset.uploadedAt.toISOString() } : null;
+}
+
 type LeanScript = {
   _id: { toString(): string };
   title: string;
@@ -30,13 +42,7 @@ type LeanScript = {
     traits: string[];
     baselineEmotion: string;
     color: string;
-    modelAsset: {
-      fileName: string;
-      format: string;
-      url: string;
-      uploadedAt: Date;
-      previewUrl: string | null;
-    } | null;
+    modelAsset: LeanModelAsset | null;
   })[];
   scenes: (LeanId & {
     actId: { toString(): string };
@@ -46,6 +52,7 @@ type LeanScript = {
     toneTarget: string;
     characterIds: { toString(): string }[];
     metrics: DashboardMetrics | null;
+    modelAsset: LeanModelAsset | null;
   })[];
   simulationRuns: (LeanId & {
     sceneId: { toString(): string };
@@ -54,6 +61,8 @@ type LeanScript = {
       characterId: { toString(): string };
       text: string;
       turnIndex: number;
+      action: string;
+      animationAssetId: string | null;
     }[];
   })[];
 };
@@ -72,9 +81,7 @@ function serialize(doc: LeanScript): ScriptData {
     traits: character.traits,
     baselineEmotion: character.baselineEmotion,
     color: character.color,
-    modelAsset: character.modelAsset
-      ? { ...character.modelAsset, uploadedAt: character.modelAsset.uploadedAt.toISOString() }
-      : null,
+    modelAsset: serializeModelAsset(character.modelAsset),
   }));
 
   const scenes: Scene[] = doc.scenes.map((scene) => ({
@@ -86,6 +93,7 @@ function serialize(doc: LeanScript): ScriptData {
     toneTarget: scene.toneTarget,
     characterIds: scene.characterIds.map((id) => id.toString()),
     metrics: scene.metrics,
+    modelAsset: serializeModelAsset(scene.modelAsset),
   }));
 
   const simulationRuns: SimulationRun[] = (doc.simulationRuns ?? []).map((run) => ({
@@ -96,6 +104,8 @@ function serialize(doc: LeanScript): ScriptData {
       characterId: turn.characterId.toString(),
       text: turn.text,
       turnIndex: turn.turnIndex,
+      action: turn.action,
+      animationAssetId: turn.animationAssetId,
     })),
   }));
 

@@ -177,7 +177,11 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               simulationRuns={script.simulationRuns}
             />
             <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l">
-              <DashboardPanel scene={selectedScene} />
+              <DashboardPanel
+                scene={selectedScene}
+                simulationRuns={script.simulationRuns}
+                characters={script.characters}
+              />
             </aside>
           </div>
         ) : (

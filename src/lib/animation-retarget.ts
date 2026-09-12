@@ -11,7 +11,7 @@
 // Date: 2026-09-12
 
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import { AnimationClip } from "three";
+import { AnimationClip, Matrix4 } from "three";
 import type { Object3D, SkinnedMesh } from "three";
 
 // SkeletonUtils.retargetClip keys `names` by the TARGET's bone name and maps
@@ -99,26 +99,83 @@ export const MIXAMO_TO_UAL_BONE_MAP: Record<string, string> = {
 // traversal across a room is exactly what's wanted.
 export const UAL_HIP_BONE_NAME = "pelvis";
 
+const IDENTITY_ELEMENTS = new Matrix4().elements;
+// Genuinely shared/correct skeletons in this library measure anywhere from
+// a perfect 0 up to ~0.02 (ordinary FBX export rounding); genuinely broken
+// duplicate copies measure upwards of ~0.15 — often well past 1. The gap
+// between those two clusters is wide, so this only needs to land somewhere
+// inside it, not pin an exact boundary.
+const BIND_ERROR_THRESHOLD = 0.1;
+
+// Several library exports bundle a PRIVATE skeleton copy per skinned
+// sub-mesh (body, hair, props, ...) instead of sharing one Bone hierarchy —
+// contrary to what this function used to assume. When that happens, only
+// one copy's inverse-bind matrices actually match its own bone tree; the
+// rest were parsed with a mismatched bind pose. That mismatch is invisible
+// at rest (matrixWorld * boneInverse still lands wherever the mesh was
+// authored to sit, since nothing has moved yet) but tears the mesh apart
+// the instant any bone's quaternion changes, which is why "run the
+// animation" is where this shows up, not "load the character". This is the
+// signal used to pick the bone set retargeting drives, in place of raw bone
+// count: for a mesh with correct bind data, every bone's current world
+// matrix undoes its own inverse-bind matrix back to the identity.
+function skeletonBindError(mesh: SkinnedMesh): number {
+  const check = new Matrix4();
+  let maxError = 0;
+  mesh.skeleton.bones.forEach((bone, index) => {
+    check.multiplyMatrices(bone.matrixWorld, mesh.skeleton.boneInverses[index]);
+    for (let i = 0; i < 16; i++) {
+      maxError = Math.max(maxError, Math.abs(check.elements[i] - IDENTITY_ELEMENTS[i]));
+    }
+  });
+  return maxError;
+}
+
+// skeletonBindError must answer consistently across a character's whole
+// lifetime, including after its bones have been driven away from bind pose
+// by a previous animation selection — at which point "does this still undo
+// to the identity" would misfire even for a genuinely correct skeleton.
+// It's only reliable read at the character's first frame, before anything
+// has animated it, so each mesh's answer is cached the first time it's asked.
+const bindValidCache = new WeakMap<SkinnedMesh, boolean>();
+
+function isBindValid(mesh: SkinnedMesh): boolean {
+  let valid = bindValidCache.get(mesh);
+  if (valid === undefined) {
+    valid = skeletonBindError(mesh) < BIND_ERROR_THRESHOLD;
+    bindValidCache.set(mesh, valid);
+  }
+  return valid;
+}
+
+const primarySkinnedMeshCache = new WeakMap<Object3D, SkinnedMesh | null>();
+
 // Exported so callers that need to build an AnimationMixer can bind it to
 // this exact object — SkeletonUtils' retargeted tracks use a `.bones[name]`
 // path, which three.js's PropertyBinding resolves only against an object
 // that itself has `.skeleton` (i.e. the SkinnedMesh), not an ancestor Group.
-//
-// A character model is commonly split into several skinned sub-meshes (body,
-// shoes, hair, ...), each referencing only the bones it actually deforms
-// against — e.g. shoes might skin to just 8 leg/foot bones out of the full
-// ~65. They all share the same underlying Bone instances though, so driving
-// the mixer via whichever mesh has the FULLEST bone list still moves every
-// sub-mesh correctly; picking an arbitrary (e.g. the first-encountered)
-// SkinnedMesh risks binding to a near-empty accessory skeleton instead.
 export function findSkinnedMesh(object: Object3D): SkinnedMesh | null {
+  const cached = primarySkinnedMeshCache.get(object);
+  if (cached !== undefined) return cached;
+
+  object.updateWorldMatrix(true, true);
   let best: SkinnedMesh | null = null;
+  let bestBindValid = false;
+  let bestBoneCount = -1;
   object.traverse((child) => {
     const mesh = child as SkinnedMesh;
-    if (mesh.isSkinnedMesh && (!best || mesh.skeleton.bones.length > best.skeleton.bones.length)) {
+    if (!mesh.isSkinnedMesh) return;
+    const bindValid = isBindValid(mesh);
+    const boneCount = mesh.skeleton.bones.length;
+    // A mesh with valid bind data always wins over one without; within the
+    // same tier, prefer whichever has the fuller rig (e.g. body over shoes).
+    if (!best || (bindValid && !bestBindValid) || (bindValid === bestBindValid && boneCount > bestBoneCount)) {
       best = mesh;
+      bestBindValid = bindValid;
+      bestBoneCount = boneCount;
     }
   });
+  primarySkinnedMeshCache.set(object, best);
   return best;
 }
 
@@ -142,17 +199,41 @@ export function resetCharacterPose(object: Object3D): void {
 // We only rewrite the track paths to the target mesh's exact bone names, which
 // accounts for FBXLoader removing `:` while GLTFLoader preserves it.
 export function prepareMixamoClipForCharacter(targetRoot: Object3D, clip: AnimationClip): AnimationClip {
-  const mesh = findSkinnedMesh(targetRoot);
-  if (!mesh) {
+  const meshes: SkinnedMesh[] = [];
+  targetRoot.traverse((child) => {
+    const mesh = child as SkinnedMesh;
+    if (mesh.isSkinnedMesh) meshes.push(mesh);
+  });
+  if (meshes.length === 0) {
     throw new RetargetError("This model has no skeleton to animate (not a rigged/skinned mesh).");
   }
+  targetRoot.updateWorldMatrix(true, true);
 
-  const targetBones = new Map<string, Object3D[]>();
-  targetRoot.traverse((bone) => {
-    if (!(bone as Object3D & { isBone?: boolean }).isBone) return;
-    const name = canonicalBoneName(bone.name);
-    targetBones.set(name, [...(targetBones.get(name) ?? []), bone]);
-  });
+  // A character is commonly split into several skinned sub-meshes (body,
+  // shoes, hair, ...), each referencing only the bones it actually deforms
+  // against — e.g. a body mesh may skin to everything except "hips" and the
+  // upper legs, which only the pants mesh needs. Normally these sub-meshes
+  // share the very same Bone instances, so unioning bones by name across all
+  // of them (deduped by uuid below) just recovers full coverage for free.
+  // But some exports instead give EVERY sub-mesh its own private, duplicate
+  // skeleton copy, and only one copy's inverse-bind matrices actually match
+  // its own bone tree — see skeletonBindError. Unioning those broken copies
+  // in by name would drive them through motion their bind pose was never
+  // built for, tearing the mesh apart. So: union bones only from meshes
+  // whose bind data checks out; fall back to using them all only if none do
+  // (nothing here can fix an asset where every copy is already broken).
+  const validMeshes = meshes.filter(isBindValid);
+  const sourceMeshes = validMeshes.length > 0 ? validMeshes : meshes;
+
+  const targetBones = new Map<string, Map<string, Object3D>>();
+  for (const mesh of sourceMeshes) {
+    for (const bone of mesh.skeleton.bones) {
+      const name = canonicalBoneName(bone.name);
+      const byUuid = targetBones.get(name) ?? new Map<string, Object3D>();
+      byUuid.set(bone.uuid, bone);
+      targetBones.set(name, byUuid);
+    }
+  }
   const sourceNames = new Set(clip.tracks.map((track) => canonicalBoneName(track.name.split(".")[0])));
   if (!CORE_BONES.every((name) => targetBones.has(name) && sourceNames.has(name))) {
     throw new RetargetError("This character and animation do not share a complete humanoid skeleton.");
@@ -165,7 +246,7 @@ export function prepareMixamoClipForCharacter(targetRoot: Object3D, clip: Animat
     if (!bones || property !== "quaternion") return [];
     // Keep each character's bone lengths and hip height. Absolute translations
     // from a different character collapse/stretch rigs or put their feet below ground.
-    return bones.map((bone) => {
+    return [...bones.values()].map((bone) => {
       const targetTrack = track.clone();
       targetTrack.name = `${bone.uuid}.quaternion`;
       return targetTrack;

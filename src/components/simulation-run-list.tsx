@@ -8,8 +8,9 @@
 "use client";
 
 import { useState } from "react";
-import { History } from "lucide-react";
+import { Box, History, MessageSquare } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -17,16 +18,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { SimulationPlayer } from "@/components/simulation-player";
 import { TranscriptView } from "@/components/transcript-view";
-import type { Character, SimulationRun } from "@/lib/types";
+import type { Character, Scene, SimulationRun } from "@/lib/types";
 
 interface SimulationRunListProps {
+  scene: Scene;
   runs: SimulationRun[];
   characters: Character[];
 }
 
-export function SimulationRunList({ runs, characters }: SimulationRunListProps) {
+export function SimulationRunList({ scene, runs, characters }: SimulationRunListProps) {
   const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const [view, setView] = useState<"transcript" | "3d">("transcript");
   const openRun = runs.find((r) => r.id === openRunId) ?? null;
 
   if (runs.length === 0) {
@@ -60,11 +64,34 @@ export function SimulationRunList({ runs, characters }: SimulationRunListProps) 
               <DialogHeader>
                 <DialogTitle>{new Date(run.createdAt).toLocaleString()}</DialogTitle>
               </DialogHeader>
-              <div className="themed-scrollbar max-h-96 overflow-y-auto pr-1">
-                {openRun?.id === run.id && (
-                  <TranscriptView turns={run.transcript} characters={characters} />
-                )}
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  variant={view === "transcript" ? "default" : "outline"}
+                  className="gap-1.5"
+                  onClick={() => setView("transcript")}
+                >
+                  <MessageSquare className="size-4" />
+                  Transcript
+                </Button>
+                <Button
+                  size="sm"
+                  variant={view === "3d" ? "default" : "outline"}
+                  className="gap-1.5"
+                  onClick={() => setView("3d")}
+                >
+                  <Box className="size-4" />
+                  Watch in 3D
+                </Button>
               </div>
+              {openRun?.id === run.id && view === "transcript" && (
+                <div className="themed-scrollbar max-h-96 overflow-y-auto pr-1">
+                  <TranscriptView turns={run.transcript} characters={characters} />
+                </div>
+              )}
+              {openRun?.id === run.id && view === "3d" && (
+                <SimulationPlayer scene={scene} characters={characters} run={openRun} />
+              )}
             </DialogContent>
           </Dialog>
         ))}

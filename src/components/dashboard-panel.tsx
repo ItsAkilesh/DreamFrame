@@ -10,6 +10,7 @@
 import { AlertTriangle } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartConfig,
@@ -17,10 +18,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { DashboardMetrics, Scene } from "@/lib/types";
+import { computeSceneComposition, countTensionPeaks } from "@/lib/scene-composition";
+import type { Character, DashboardMetrics, Scene, SimulationRun } from "@/lib/types";
 
 interface DashboardPanelProps {
   scene: Scene;
+  simulationRuns: SimulationRun[];
+  characters: Character[];
 }
 
 const tensionChartConfig = {
@@ -101,7 +105,98 @@ function TensionCurveCard({ metrics }: { metrics: DashboardMetrics }) {
   );
 }
 
-export function DashboardPanel({ scene }: DashboardPanelProps) {
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <Card className="gap-1 py-3">
+      <CardContent className="flex flex-col gap-1 px-3">
+        <span className="text-muted-foreground text-xs">{label}</span>
+        <span className="text-xl font-semibold tabular-nums">{value}</span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `~${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `~${minutes}m ${remainder}s`;
+}
+
+// Deterministic, computed straight from the transcript — not judged by an
+// LLM. Same reasoning as the previs analyzer elsewhere in this app: a
+// number derived from the actual data is worth more than another plausible
+// score, and it costs nothing extra to produce.
+function SceneCompositionSection({
+  transcript,
+  characters,
+  tensionCurve,
+}: {
+  transcript: SimulationRun["transcript"];
+  characters: Character[];
+  tensionCurve: number[];
+}) {
+  const composition = computeSceneComposition(transcript, characters);
+  const peaks = countTensionPeaks(tensionCurve);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-muted-foreground px-0.5 text-xs font-medium tracking-wide uppercase">
+        Scene composition
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        <InfoTile label="Est. runtime" value={formatDuration(composition.estimatedRuntimeSeconds)} />
+        <InfoTile label="Tension peaks" value={String(peaks)} />
+        <InfoTile
+          label="Longest run"
+          value={
+            composition.longestMonologue
+              ? `${composition.longestMonologue.turns} lines`
+              : "—"
+          }
+        />
+      </div>
+
+      {composition.dialogueBalance.length > 0 && (
+        <Card className="py-3">
+          <CardHeader className="px-3">
+            <CardTitle className="text-sm font-medium">Dialogue balance</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 px-3">
+            {composition.dialogueBalance.map((share) => (
+              <div key={share.characterId} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: share.color }}
+                    />
+                    {share.name}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">{share.percentage}%</span>
+                </div>
+                <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${share.percentage}%`, backgroundColor: share.color }}
+                  />
+                </div>
+              </div>
+            ))}
+            {composition.longestMonologue && composition.longestMonologue.turns >= 3 && (
+              <Badge variant="secondary" className="mt-1 w-fit gap-1 text-[10px]">
+                <AlertTriangle className="size-3" />
+                {composition.longestMonologue.name} carries {composition.longestMonologue.turns} lines in a row
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+export function DashboardPanel({ scene, simulationRuns, characters }: DashboardPanelProps) {
   const { metrics } = scene;
 
   if (!metrics) {
@@ -115,6 +210,10 @@ export function DashboardPanel({ scene }: DashboardPanelProps) {
       </div>
     );
   }
+
+  const latestRun = simulationRuns
+    .filter((run) => run.sceneId === scene.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -140,6 +239,14 @@ export function DashboardPanel({ scene }: DashboardPanelProps) {
           flagAbove={50}
         />
       </div>
+
+      {latestRun && (
+        <SceneCompositionSection
+          transcript={latestRun.transcript}
+          characters={characters}
+          tensionCurve={metrics.tensionCurve}
+        />
+      )}
     </div>
   );
 }

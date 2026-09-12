@@ -3,6 +3,9 @@
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
+// Generic 3D-asset reference — used for both a character's model and (below)
+// a scene's environment model. Named for its original use; nothing about the
+// shape is character-specific.
 export interface CharacterModelAsset {
   fileName: string;
   format: string;
@@ -58,6 +61,10 @@ export interface Scene {
   toneTarget: string;
   characterIds: string[];
   metrics: DashboardMetrics | null;
+  // The scene's assigned 3D environment (room/set) model, uploaded or picked
+  // from the asset library's "scene" category — renders in place of the
+  // previs Stage's placeholder room when set.
+  modelAsset: CharacterModelAsset | null;
 }
 
 export interface Act {
@@ -70,6 +77,15 @@ export interface SimulationTurn {
   characterId: string;
   text: string;
   turnIndex: number;
+  // A short present-tense physical action the agent chose for this line
+  // (e.g. "crosses her arms"), independent of the dialogue itself.
+  action: string;
+  // The asset library's "animation" category id (its filename) whose label
+  // best matched `action`, resolved server-side at simulation time — see
+  // src/lib/animation-match.ts. Null when nothing labeled matched well
+  // enough (most of the library isn't labeled yet — see
+  // scripts/label-animations.mjs).
+  animationAssetId: string | null;
 }
 
 export interface SimulationRun {

@@ -1,9 +1,12 @@
 // simulation-dialog.tsx
 // Purpose: Triggers a turn-by-turn multi-agent conversation simulation for a
-//          scene and shows it streaming in live, one line at a time. On
-//          completion the run is already persisted server-side (a separate
-//          SimulationRun — the scene's baseline text is never touched), and
-//          the page is refreshed so it shows up in the past-runs list.
+//          scene and shows it live — the script streaming in on one side,
+//          the cast acting each line out (and playing its matched
+//          animation) in 3D on the other, via the shared SimulationStage
+//          view. On completion the run is already persisted server-side (a
+//          separate SimulationRun — the scene's baseline text is never
+//          touched), and the page is refreshed so it shows up in the
+//          past-runs list.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
@@ -23,8 +26,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { TranscriptView, type TranscriptTurn } from "@/components/transcript-view";
+import { SimulationStage } from "@/components/simulation-stage";
+import { TranscriptView } from "@/components/transcript-view";
 import type { Character, Scene } from "@/lib/types";
+
+interface LiveTurn {
+  characterId: string;
+  text: string;
+  action: string;
+  animationAssetId: string | null;
+}
 
 interface SimulationDialogProps {
   scriptId: string;
@@ -35,7 +46,7 @@ interface SimulationDialogProps {
 export function SimulationDialog({ scriptId, scene, characters }: SimulationDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [turns, setTurns] = useState<TranscriptTurn[]>([]);
+  const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -81,7 +92,7 @@ export function SimulationDialog({ scriptId, scene, characters }: SimulationDial
         for (const line of lines) {
           if (!line.trim()) continue;
           const parsed = JSON.parse(line) as
-            | { characterId: string; text: string; turnIndex: number }
+            | { characterId: string; text: string; turnIndex: number; action: string; animationAssetId: string | null }
             | { done: true; runId: string }
             | { error: string };
 
@@ -90,7 +101,15 @@ export function SimulationDialog({ scriptId, scene, characters }: SimulationDial
           } else if ("done" in parsed) {
             router.refresh();
           } else {
-            setTurns((prev) => [...prev, { characterId: parsed.characterId, text: parsed.text }]);
+            setTurns((prev) => [
+              ...prev,
+              {
+                characterId: parsed.characterId,
+                text: parsed.text,
+                action: parsed.action,
+                animationAssetId: parsed.animationAssetId,
+              },
+            ]);
           }
         }
       }
@@ -100,6 +119,8 @@ export function SimulationDialog({ scriptId, scene, characters }: SimulationDial
       setIsRunning(false);
     }
   }
+
+  const latestTurn = turns[turns.length - 1] ?? null;
 
   return (
     <Dialog
@@ -119,22 +140,32 @@ export function SimulationDialog({ scriptId, scene, characters }: SimulationDial
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Live simulation — {scene.title}</DialogTitle>
           <DialogDescription>
-            Characters improvise the scene in character, one line at a time.
+            Characters improvise the scene in character, one line at a time, acting it out as they go.
           </DialogDescription>
         </DialogHeader>
 
-        <div ref={scrollRef} className="themed-scrollbar h-96 overflow-y-auto pr-1">
-          <TranscriptView turns={turns} characters={characters} />
-          {isRunning && (
-            <p className="text-muted-foreground mt-3 flex items-center gap-2 text-xs italic">
-              <Loader2 className="size-3 animate-spin" />
-              generating...
-            </p>
-          )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SimulationStage
+            scene={scene}
+            characters={characters}
+            speakingCharacterId={latestTurn?.characterId ?? null}
+            animationAssetId={latestTurn?.animationAssetId}
+            className="bg-muted/40 h-80 overflow-hidden rounded-md"
+          />
+
+          <div ref={scrollRef} className="themed-scrollbar h-80 overflow-y-auto pr-1">
+            <TranscriptView turns={turns} characters={characters} />
+            {isRunning && (
+              <p className="text-muted-foreground mt-3 flex items-center gap-2 text-xs italic">
+                <Loader2 className="size-3 animate-spin" />
+                generating...
+              </p>
+            )}
+          </div>
         </div>
 
         {error && <p className="text-destructive text-sm">{error}</p>}

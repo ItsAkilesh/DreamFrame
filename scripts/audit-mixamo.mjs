@@ -10,7 +10,7 @@ const report = {characters: 0, unsupportedVersion: 0, compatibleCharacters: 0, a
 const loader = new FBXLoader();
 // Loader warnings about discarded extra vertex weights aren't parse failures.
 console.warn = () => {};
-for (const category of ['characters','animations']) {
+for (const category of (process.argv.includes('--characters') ? ['characters'] : ['characters','animations'])) {
   for (const name of readdirSync(`public/assets/library/${category}`).filter(name => name.endsWith('.fbx'))) {
     const data = readFileSync(`public/assets/library/${category}/${name}`);
     report[category]++;

@@ -16,6 +16,7 @@ import { Clapperboard, LucideIcon, Sparkles, Users } from "lucide-react";
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
 import { EditableField } from "@/components/editable-field";
 import { SceneCharactersDialog } from "@/components/scene-characters-dialog";
+import { SceneModelUpload } from "@/components/scene-model-upload";
 import { ScenePlayer } from "@/components/scene-player";
 import { SimulationDialog } from "@/components/simulation-dialog";
 import { SimulationRunList } from "@/components/simulation-run-list";
@@ -172,10 +173,21 @@ export function SceneWorkspace({
             </div>
           </div>
 
+          <Separator />
+
+          <div>
+            <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
+              Set model
+            </p>
+            <div className="max-w-xs">
+              <SceneModelUpload scriptId={scriptId} scene={scene} />
+            </div>
+          </div>
+
           {sceneRuns.length > 0 && (
             <>
               <Separator />
-              <SimulationRunList runs={sceneRuns} characters={sceneCharacters} />
+              <SimulationRunList scene={scene} runs={sceneRuns} characters={sceneCharacters} />
             </>
           )}
         </CardContent>

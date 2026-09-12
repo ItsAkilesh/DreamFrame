@@ -52,6 +52,7 @@ const SceneSchema = new Schema(
     toneTarget: { type: String, required: true },
     characterIds: { type: [Schema.Types.ObjectId], default: [] },
     metrics: { type: DashboardMetricsSchema, default: null },
+    modelAsset: { type: CharacterModelAssetSchema, default: null },
   },
   { _id: true }
 );
@@ -69,6 +70,8 @@ const SimulationTurnSchema = new Schema(
     characterId: { type: Schema.Types.ObjectId, required: true },
     text: { type: String, required: true },
     turnIndex: { type: Number, required: true },
+    action: { type: String, default: "" },
+    animationAssetId: { type: String, default: null },
   },
   { _id: false }
 );

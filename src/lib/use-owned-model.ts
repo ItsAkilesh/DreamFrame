@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FBXLoader, GLTFLoader } from "three-stdlib";
-import { type Object3D, type Mesh, Texture } from "three";
+import { type Object3D, type Mesh, type SkinnedMesh, Texture } from "three";
 
 // Each viewer owns its model. Do not retain dozens of 100MB FBXs in useLoader's
 // global cache or let two canvases reparent and animate the same skeleton.
@@ -11,13 +11,18 @@ export function disposeModel(object: Object3D) {
   object.traverse((node) => {
     const mesh = node as Mesh;
     mesh.geometry?.dispose();
+    (node as SkinnedMesh).skeleton?.dispose();
     const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
     for (const material of materials) {
       for (const value of Object.values(material)) if (value instanceof Texture) textures.add(value);
       material.dispose();
     }
   });
-  textures.forEach((texture) => texture.dispose());
+  textures.forEach((texture) => {
+    const source = (texture.image as {src?: unknown} | undefined)?.src;
+    if (typeof source === "string" && source.startsWith("blob:")) URL.revokeObjectURL(source);
+    texture.dispose();
+  });
 }
 
 export function useOwnedModel(url: string, format: string) {
@@ -25,9 +30,15 @@ export function useOwnedModel(url: string, format: string) {
   useEffect(() => {
     let cancelled = false;
     let owned: Object3D | null = null;
-    const request = format === "fbx"
-      ? new FBXLoader().loadAsync(url)
-      : new GLTFLoader().loadAsync(url).then((gltf) => gltf.scene);
+    const controller = new AbortController();
+    const base = new URL(".", new URL(url, window.location.href)).href;
+    const request = fetch(url, {signal: controller.signal}).then(async (response) => {
+      if (!response.ok) throw new Error(`Unable to load model (${response.status})`);
+      const bytes = await response.arrayBuffer();
+      if (cancelled) throw new Error("Model load cancelled");
+      return format === "fbx" ? new FBXLoader().parse(bytes, base)
+        : new GLTFLoader().parseAsync(bytes, base).then((gltf) => gltf.scene);
+    });
     request.then((object) => {
       if (cancelled) { disposeModel(object); return; }
       owned = object;
@@ -35,7 +46,7 @@ export function useOwnedModel(url: string, format: string) {
     }).catch((error: unknown) => {
       if (!cancelled) setState({url, object: null, error: error instanceof Error ? error.message : "Unable to load model"});
     });
-    return () => { cancelled = true; if (owned) disposeModel(owned); };
+    return () => { cancelled = true; controller.abort(); if (owned) disposeModel(owned); };
   }, [url, format]);
   return state.url === url ? state : {url, object: null, error: null};
 }

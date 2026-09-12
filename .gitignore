@@ -22,6 +22,7 @@
 
 # shared asset library (Mixamo exports, etc.) — dropped in locally, not source
 /public/assets/library/
+/.asset-backups/
 
 # cached preview thumbnails generated client-side for the asset library —
 # derived from the (also gitignored) library files, safe to regenerate

@@ -21,6 +21,9 @@ import { runAnalyzer } from "@/analyze/index";
 import { specDuration } from "@/render/blocking";
 import { usePlayhead } from "@/render/usePlayhead";
 import type { Note, PrevisSpec } from "@/schema/previsSpec";
+import type { CharacterModelAsset } from "@/lib/types";
+
+type CharacterModelMap = Record<string, CharacterModelAsset | null | undefined>;
 
 const Stage = dynamic(() => import("@/render/Stage").then((m) => m.Stage), {
   ssr: false,
@@ -33,9 +36,11 @@ const Stage = dynamic(() => import("@/render/Stage").then((m) => m.Stage), {
 
 interface EditorViewProps {
   spec: PrevisSpec;
+  sceneModelAsset?: CharacterModelAsset | null;
+  characterModels?: CharacterModelMap;
 }
 
-export function EditorView({ spec }: EditorViewProps) {
+export function EditorView({ spec, sceneModelAsset, characterModels }: EditorViewProps) {
   const duration = specDuration(spec);
   const { time, isPlaying, setTime, togglePlay } = usePlayhead(duration);
   const { notes, totalCount } = useMemo(() => runAnalyzer(spec), [spec]);
@@ -66,7 +71,13 @@ export function EditorView({ spec }: EditorViewProps) {
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1">
-            <Stage spec={spec} time={time} highlightedCharacterIds={highlighted} />
+            <Stage
+              spec={spec}
+              time={time}
+              highlightedCharacterIds={highlighted}
+              sceneModelAsset={sceneModelAsset}
+              characterModels={characterModels}
+            />
           </div>
           <Timeline
             spec={spec}

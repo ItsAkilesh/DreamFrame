@@ -41,6 +41,13 @@ export function ScenePlayer({ scene, characters }: ScenePlayerProps) {
     }
   }, [scene, characters]);
 
+  // Keyed by character id, same as spec.cast[].id (fromScene reuses it
+  // directly) — each cast member's own uploaded/library model, if any.
+  const characterModels = useMemo(
+    () => Object.fromEntries(characters.map((c) => [c.id, c.modelAsset])),
+    [characters]
+  );
+
   const duration = spec ? specDuration(spec) : 0;
   const { time, isPlaying, setTime, togglePlay } = usePlayhead(duration);
 
@@ -55,7 +62,12 @@ export function ScenePlayer({ scene, characters }: ScenePlayerProps) {
   return (
     <div className="flex h-80 flex-col overflow-hidden rounded-lg border">
       <div className="flex-1">
-        <Stage spec={spec} time={time} />
+        <Stage
+          spec={spec}
+          time={time}
+          sceneModelAsset={scene.modelAsset}
+          characterModels={characterModels}
+        />
       </div>
       <Timeline
         spec={spec}

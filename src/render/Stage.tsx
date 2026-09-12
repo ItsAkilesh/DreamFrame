@@ -1,7 +1,13 @@
 // Stage.tsx
-// Purpose: M0 placeholder previs stage — room, box props, capsule
-//          characters, three-point lighting, OrbitControls. All primitives;
-//          no GLB loading (that's M1). Must never throw on a partial spec.
+// Purpose: Previs stage — room, props, cast, three-point lighting,
+//          OrbitControls. A scene's assigned environment model
+//          (sceneModelAsset) renders in place of the placeholder box room
+//          (see SceneEnvironment.tsx), and each cast member's own uploaded/
+//          library model (characterModels) renders in place of their
+//          placeholder capsule (see CharacterFigure.tsx) — both fall back to
+//          their placeholder cleanly on any load failure. Props remain
+//          placeholder boxes; that's still open. Must never throw on a
+//          partial spec.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
@@ -12,13 +18,26 @@ import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
 import { PROP_DIMENSIONS } from "@/assets/manifest";
+import { isPreviewableCharacterModelFormat } from "@/lib/character-model-formats";
+import { CharacterFigure, type StageCharacterModelAsset } from "@/render/CharacterFigure";
 import { resolvePose } from "@/render/blocking";
+import { SceneEnvironment } from "@/render/SceneEnvironment";
 import type { PrevisSpec } from "@/schema/previsSpec";
+
+interface StageSceneModelAsset {
+  url: string;
+  format: string;
+}
 
 interface StageProps {
   spec: PrevisSpec;
   time: number;
   highlightedCharacterIds?: string[];
+  sceneModelAsset?: StageSceneModelAsset | null;
+  // Keyed by the same character id as spec.cast[].id — a dashboard concern
+  // (each character's own uploaded/library model), not part of the PrevisSpec
+  // contract, same reasoning as sceneModelAsset above.
+  characterModels?: Record<string, StageCharacterModelAsset | null | undefined>;
 }
 
 function Room({ dimensions }: { dimensions: { w: number; d: number; h: number } }) {
@@ -64,21 +83,19 @@ function Prop({ prop }: { prop: PrevisSpec["set"]["props"][number] }) {
   );
 }
 
-function CharacterCapsule({
+function StageCharacter({
   character,
   time,
   spec,
+  modelAsset,
   highlighted,
 }: {
   character: PrevisSpec["cast"][number];
   time: number;
   spec: PrevisSpec;
+  modelAsset?: StageCharacterModelAsset | null;
   highlighted: boolean;
 }) {
-  const radius = 0.25;
-  const totalHeight = 1.75;
-  const cylinderLength = totalHeight - radius * 2;
-
   let pose;
   try {
     pose = resolvePose(spec, character.id, time);
@@ -87,21 +104,14 @@ function CharacterCapsule({
     pose = { position: character.position, rotationY: character.rotationY };
   }
 
-  const [x, , z] = pose.position;
-
   return (
-    <group>
-      <mesh position={[x, totalHeight / 2, z]} rotation={[0, pose.rotationY, 0]} castShadow>
-        <capsuleGeometry args={[radius, cylinderLength, 4, 12]} />
-        <meshLambertMaterial color={character.color} />
-      </mesh>
-      {highlighted && (
-        <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[radius + 0.08, radius + 0.18, 32]} />
-          <meshBasicMaterial color="#ffd23f" />
-        </mesh>
-      )}
-    </group>
+    <CharacterFigure
+      modelAsset={modelAsset}
+      position={pose.position}
+      rotationY={pose.rotationY}
+      color={character.color}
+      highlighted={highlighted}
+    />
   );
 }
 
@@ -167,9 +177,18 @@ function ThreePointLights({ lights }: { lights: PrevisSpec["set"]["lights"] }) {
   );
 }
 
-export function Stage({ spec, time, highlightedCharacterIds = [] }: StageProps) {
+export function Stage({
+  spec,
+  time,
+  highlightedCharacterIds = [],
+  sceneModelAsset,
+  characterModels,
+}: StageProps) {
   const { w, d } = spec.set.dimensions;
   const camDistance = Math.max(w, d) * 1.3;
+
+  const canRenderSceneModel =
+    sceneModelAsset != null && isPreviewableCharacterModelFormat(sceneModelAsset.format);
 
   return (
     <Canvas
@@ -177,16 +196,25 @@ export function Stage({ spec, time, highlightedCharacterIds = [] }: StageProps) 
       camera={{ position: [0, camDistance * 0.5, camDistance], fov: 50 }}
     >
       <ThreePointLights lights={spec.set.lights} />
-      <Room dimensions={spec.set.dimensions} />
+      {canRenderSceneModel ? (
+        <SceneEnvironment
+          url={sceneModelAsset.url}
+          format={sceneModelAsset.format}
+          fallback={<Room dimensions={spec.set.dimensions} />}
+        />
+      ) : (
+        <Room dimensions={spec.set.dimensions} />
+      )}
       {spec.set.props.map((prop) => (
         <Prop key={prop.id} prop={prop} />
       ))}
       {spec.cast.map((character) => (
-        <CharacterCapsule
+        <StageCharacter
           key={character.id}
           character={character}
           time={time}
           spec={spec}
+          modelAsset={characterModels?.[character.id]}
           highlighted={highlightedCharacterIds.includes(character.id)}
         />
       ))}

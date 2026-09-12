@@ -95,7 +95,13 @@ export async function POST(
 
   const stream = new ReadableStream({
     async start(controller) {
-      const transcript: { characterId: string; text: string; turnIndex: number }[] = [];
+      const transcript: {
+        characterId: string;
+        text: string;
+        turnIndex: number;
+        action: string;
+        animationAssetId: string | null;
+      }[] = [];
       try {
         let turnIndex = 0;
         for await (const turn of simulateConversation({

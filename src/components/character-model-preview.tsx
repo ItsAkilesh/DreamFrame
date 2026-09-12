@@ -20,6 +20,7 @@ import { Grid, OrbitControls } from "@react-three/drei";
 import { Minus, Pause, Play, Plus } from "lucide-react";
 import { AnimationMixer, Box3, Vector3, type AnimationClip, type Object3D, type PerspectiveCamera } from "three";
 import { useOwnedModel } from "@/lib/use-owned-model";
+import { AnimationPicker } from "@/components/animation-picker";
 
 import {
   prepareMixamoClipForCharacter,
@@ -403,20 +404,12 @@ export function CharacterModelPreview({ url, format }: CharacterModelPreviewProp
           </p>
         )}
         <div className="pointer-events-auto flex items-center gap-1 rounded-md bg-black/60 p-1 backdrop-blur-sm">
-          <select
-            aria-label="Animation"
-            value={selectedAnimationId ?? ""}
-            onChange={(event) => { setRetargetError(null); setSelectedAnimationId(event.target.value || null); }}
+          <AnimationPicker
+            animations={compatible ? animations : []}
+            value={selectedAnimationId}
+            onChange={(id) => { setRetargetError(null); setSelectedAnimationId(id); }}
             disabled={!compatible || animations.length === 0}
-            className="max-w-24 rounded bg-transparent text-[10px] text-white/80 outline-none disabled:opacity-30 [&>option]:text-black"
-          >
-            <option value="">Bind pose</option>
-            {(compatible ? animations : []).map((animation, index) => (
-              <option key={animation.id} value={animation.id}>
-                {animation.name || `Mixamo animation ${index + 1}`}
-              </option>
-            ))}
-          </select>
+          />
           <ToolbarButton
             label={isRotating ? "Pause rotation" : "Resume rotation"}
             onClick={() => setIsRotating((value) => !value)}

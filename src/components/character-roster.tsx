@@ -40,17 +40,8 @@ export function CharacterRoster({ scriptId, characters }: CharacterRosterProps) 
     <div className="flex-1 overflow-y-auto p-4">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {characters.map((character) => (
-          <Card key={character.id} size="sm" className="gap-2">
+          <Card key={character.id} size="sm" className="h-full gap-2">
             <CardHeader className="flex flex-row items-start justify-between gap-1.5">
-              <CharacterEditDialog
-                scriptId={scriptId}
-                character={character}
-                trigger={
-                  <Button size="icon-sm" variant="ghost" aria-label={`Edit ${character.name}`}>
-                    <Pencil />
-                  </Button>
-                }
-              />
               <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   className="size-2.5 shrink-0 rounded-full"
@@ -60,9 +51,18 @@ export function CharacterRoster({ scriptId, characters }: CharacterRosterProps) 
                   {character.name}
                 </span>
               </div>
+              <CharacterEditDialog
+                scriptId={scriptId}
+                character={character}
+                trigger={
+                  <Button size="icon-sm" variant="ghost" aria-label={`Edit ${character.name}`}>
+                    <Pencil />
+                  </Button>
+                }
+              />
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-1">
+              <div className="flex max-h-16 flex-wrap items-center gap-1 overflow-hidden">
                 <Badge variant="secondary" className="text-[10px]">
                   {character.baselineEmotion}
                 </Badge>

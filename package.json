@@ -10,7 +10,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate:thumbnails": "node scripts/generate-thumbnails.mjs"
+    "generate:thumbnails": "node scripts/generate-thumbnails.mjs",
+    "label:animations": "node scripts/label-animations.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
