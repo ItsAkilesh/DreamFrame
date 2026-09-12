@@ -18,10 +18,18 @@ interface HomeProps {
 export default async function Home({ searchParams }: HomeProps) {
   const { scriptId } = await searchParams;
 
-  const [script, allScripts] = await Promise.all([
-    scriptId ? getScriptById(scriptId) : getCurrentScript(),
-    getAllScripts(),
-  ]);
+  // A dead database must not blank the page (plan.md §10 rule 4, §13): the
+  // dashboard still renders its empty state, which offers the demo scene.
+  let script = null;
+  let allScripts: Awaited<ReturnType<typeof getAllScripts>> = [];
+  try {
+    [script, allScripts] = await Promise.all([
+      scriptId ? getScriptById(scriptId) : getCurrentScript(),
+      getAllScripts(),
+    ]);
+  } catch (error) {
+    console.error("dashboard: database unreachable, rendering empty state:", error);
+  }
 
   // Remount on script change (including null -> a script, or script -> a
   // different script) so EditorShell's internal selected-scene state can't

@@ -9,7 +9,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Clapperboard } from "lucide-react";
+import { Box, Clapperboard } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AssetLibraryDialog } from "@/components/asset-library-dialog";
@@ -53,6 +53,32 @@ function NoScriptUploaded() {
         </p>
       </div>
       <ScriptUploadDialog />
+
+      <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
+        <span>or look at the 3D view with a demo scene</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          nativeButton={false}
+          render={<Link href="/editor?fixture=office" />}
+        >
+          <Clapperboard className="size-4" />
+          3D View — demo scene
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          nativeButton={false}
+          render={<Link href="/model" />}
+        >
+          <Box className="size-4" />
+          Asset inspector
+        </Button>
+      </div>
     </div>
   );
 }
