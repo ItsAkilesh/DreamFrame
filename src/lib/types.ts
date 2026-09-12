@@ -40,6 +40,11 @@ export interface Character {
   // the AI structuring pass — distinct from the previs renderer's own closed
   // Mixamo model set (src/assets/manifest.ts), which this does not feed.
   modelAsset: CharacterModelAsset | null;
+  // Manually assigned ElevenLabs voice id (src/components/voice-picker.tsx).
+  // Null until someone picks one — src/lib/voice/voices.ts's
+  // resolveVoiceId() falls back to a deterministic per-character default so
+  // simulation playback always has *a* voice, assigned or not.
+  voiceId: string | null;
 }
 
 export interface DashboardMetrics {
@@ -140,6 +145,9 @@ export interface SimulationTurn {
   // A short present-tense physical action the agent chose for this line
   // (e.g. "crosses her arms"), independent of the dialogue itself.
   action: string;
+  // Hidden acting direction for expressive TTS; optional for simulations
+  // saved before emotional voice direction was introduced.
+  voiceDirection?: string | null;
   // The asset library's "animation" category id (its filename) whose label
   // best matched `action`, resolved server-side at simulation time — see
   // src/lib/animation-match.ts. Null when nothing labeled matched well

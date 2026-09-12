@@ -33,6 +33,7 @@ const baseCharacter: Character = {
   baselineEmotion: "controlled",
   color: "var(--chart-1)",
   modelAsset: null,
+  voiceId: null,
 };
 
 describe("mergeScenePatch", () => {
@@ -96,5 +97,37 @@ describe("mergeCharacterPatch", () => {
 
     expect(result.color).toBe("#ff8800");
     expect(result.name).toBe(baseCharacter.name);
+  });
+
+  it("assigns a voice id", () => {
+    const result = mergeCharacterPatch(baseCharacter, {
+      type: "character",
+      id: "ch_1",
+      voiceId: "21m00Tcm4TlvDq8ikWAM",
+    });
+
+    expect(result.voiceId).toBe("21m00Tcm4TlvDq8ikWAM");
+  });
+
+  it("clears a voice id back to auto-assigned when the patch sends null", () => {
+    const assigned: Character = { ...baseCharacter, voiceId: "21m00Tcm4TlvDq8ikWAM" };
+    const result = mergeCharacterPatch(assigned, {
+      type: "character",
+      id: "ch_1",
+      voiceId: null,
+    });
+
+    expect(result.voiceId).toBeNull();
+  });
+
+  it("leaves the voice id untouched when the patch omits it", () => {
+    const assigned: Character = { ...baseCharacter, voiceId: "21m00Tcm4TlvDq8ikWAM" };
+    const result = mergeCharacterPatch(assigned, {
+      type: "character",
+      id: "ch_1",
+      name: "MAYA R.",
+    });
+
+    expect(result.voiceId).toBe("21m00Tcm4TlvDq8ikWAM");
   });
 });

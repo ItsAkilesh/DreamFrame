@@ -18,6 +18,7 @@ const CHARACTERS = [
     baselineEmotion: "guarded",
     color: "#e07a5f",
     modelAsset: null,
+    voiceId: null,
   },
   {
     id: "demo-ch-jordan",
@@ -27,6 +28,7 @@ const CHARACTERS = [
     baselineEmotion: "wary",
     color: "#3d5a80",
     modelAsset: null,
+    voiceId: null,
   },
   {
     id: "demo-ch-sam",
@@ -36,6 +38,7 @@ const CHARACTERS = [
     baselineEmotion: "nervous",
     color: "#8a5a9e",
     modelAsset: null,
+    voiceId: null,
   },
 ];
 

@@ -10,7 +10,7 @@
 
 "use client";
 
-import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SimulationStage } from "@/components/simulation-stage";
@@ -25,11 +25,14 @@ interface SimulationPlayerProps {
 
 export function SimulationPlayer({ scene, characters, run }: SimulationPlayerProps) {
   const turns = run.transcript;
-  const { currentIndex, currentTurn, isPlaying, setIsPlaying, goTo } = useTurnPlayback({
-    turns,
-    isLive: false,
-    autoPlay: false,
-  });
+  const { currentIndex, currentTurn, isPlaying, isMuted, setIsPlaying, goTo, toggleMute, primeAudio } =
+    useTurnPlayback({
+      turns,
+      characters,
+      isLive: false,
+      autoPlay: false,
+      sceneContext: `${scene.title}. ${scene.toneTarget}`,
+    });
 
   if (turns.length === 0 || !currentTurn) {
     return (
@@ -79,7 +82,10 @@ export function SimulationPlayer({ scene, characters, run }: SimulationPlayerPro
             size="icon-sm"
             variant="outline"
             aria-label={isPlaying ? "Pause" : "Play"}
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={() => {
+              if (!isPlaying) primeAudio();
+              setIsPlaying(!isPlaying);
+            }}
           >
             {isPlaying ? <Pause /> : <Play />}
           </Button>
@@ -91,6 +97,9 @@ export function SimulationPlayer({ scene, characters, run }: SimulationPlayerPro
             onClick={() => goTo(currentIndex + 1)}
           >
             <SkipForward />
+          </Button>
+          <Button size="icon-sm" variant="outline" aria-label={isMuted ? "Unmute" : "Mute"} onClick={toggleMute}>
+            {isMuted ? <VolumeX /> : <Volume2 />}
           </Button>
           <span className="text-muted-foreground ml-2 text-xs">
             Turn {currentIndex + 1} / {turns.length}

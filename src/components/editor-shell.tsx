@@ -8,7 +8,6 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { Box, Clapperboard, Lightbulb, LineChart } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -19,7 +18,7 @@ import { RecommendationsPanel } from "@/components/recommendations-panel";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
 import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import { SceneWorkspace } from "@/components/scene-workspace";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -27,6 +26,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { ScriptSummary } from "@/lib/get-current-script";
 import type { ScriptData } from "@/lib/types";
 
@@ -61,26 +61,20 @@ function NoScriptUploaded() {
         <span>or open the 3D viewer</span>
       </div>
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          nativeButton={false}
-          render={<Link href="/model" />}
+        <a
+          href="/model"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
         >
           <Box className="size-4" />
           3D Viewer
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2"
-          nativeButton={false}
-          render={<Link href="/editor?fixture=office" />}
+        </a>
+        <a
+          href="/editor?fixture=office"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-2")}
         >
           <Clapperboard className="size-4" />
           Scene editor — demo scene
-        </Button>
+        </a>
       </div>
     </div>
   );
@@ -145,24 +139,20 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
           )}
 
           {script && selectedScene && !isCharactersActive && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto gap-2"
-              nativeButton={false}
-              render={
-                <Link
-                  href={
-                    DEMO_SCENE_FIXTURE[selectedScene.id]
-                      ? `/editor?fixture=${DEMO_SCENE_FIXTURE[selectedScene.id]}`
-                      : `/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`
-                  }
-                />
+            <a
+              href={
+                DEMO_SCENE_FIXTURE[selectedScene.id]
+                  ? `/editor?fixture=${DEMO_SCENE_FIXTURE[selectedScene.id]}`
+                  : `/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`
               }
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "ml-auto gap-2"
+              )}
             >
               <Clapperboard className="size-4" />
               Editor View
-            </Button>
+            </a>
           )}
         </header>
 
@@ -171,7 +161,7 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
         ) : isCharactersActive ? (
           <CharacterRoster scriptId={script.id} characters={script.characters} />
         ) : selectedScene ? (
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
             <SceneWorkspace
               scriptId={script.id}
               scene={selectedScene}
@@ -180,8 +170,8 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               audiencePersonas={script.audiencePersonas}
             />
             <aside className="bg-sidebar flex w-80 shrink-0 flex-col overflow-hidden border-l xl:w-[22rem] 2xl:w-96">
-              <Tabs defaultValue="metrics" className="min-h-0 flex-1 gap-0">
-                <TabsList className="m-3 mb-0 w-auto">
+              <Tabs defaultValue="metrics" className="flex min-h-0 flex-1 flex-col gap-0">
+                <TabsList className="m-3 mb-0 w-auto shrink-0">
                   <TabsTrigger value="metrics" className="flex-1 gap-1.5">
                     <LineChart />
                     Metrics
@@ -191,14 +181,14 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
                     Improve
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="metrics" className="min-h-0 overflow-y-auto">
+                <TabsContent value="metrics" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   <DashboardPanel
                     scene={selectedScene}
                     simulationRuns={script.simulationRuns}
                     characters={script.characters}
                   />
                 </TabsContent>
-                <TabsContent value="recommendations" className="min-h-0 overflow-y-auto">
+                <TabsContent value="recommendations" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   <RecommendationsPanel
                     scriptId={script.id}
                     scene={selectedScene}

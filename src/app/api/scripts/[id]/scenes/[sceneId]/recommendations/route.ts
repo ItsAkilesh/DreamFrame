@@ -24,6 +24,7 @@ interface CharacterSubdoc {
   traits: string[];
   baselineEmotion: string;
   color: string;
+  voiceId?: string | null;
 }
 
 interface RunSubdoc {
@@ -60,6 +61,7 @@ export async function POST(
       color: character.color,
       // Not read by any check; the 3D asset has no bearing on the writing.
       modelAsset: null,
+      voiceId: character.voiceId ?? null,
     })
   );
 

@@ -64,6 +64,7 @@ export async function POST(
         baselineEmotion: characterDoc.baselineEmotion,
         color: characterDoc.color,
         modelAsset: null,
+        voiceId: characterDoc.voiceId ?? null,
       },
       pressureScenario,
       signal: request.signal,

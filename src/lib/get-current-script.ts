@@ -66,6 +66,7 @@ type LeanScript = {
     baselineEmotion: string;
     color: string;
     modelAsset: LeanModelAsset | null;
+    voiceId?: string | null;
   })[];
   scenes: (LeanId & {
     actId: { toString(): string };
@@ -109,6 +110,7 @@ function serialize(doc: LeanScript): ScriptData {
     baselineEmotion: character.baselineEmotion,
     color: character.color,
     modelAsset: serializeModelAsset(character.modelAsset),
+    voiceId: character.voiceId ?? null,
   }));
 
   const scenes: Scene[] = doc.scenes.map((scene) => ({
@@ -142,6 +144,7 @@ function serialize(doc: LeanScript): ScriptData {
       text: turn.text,
       turnIndex: turn.turnIndex,
       action: turn.action,
+      voiceDirection: turn.voiceDirection ?? null,
       animationAssetId: turn.animationAssetId,
     })),
     audienceReview: run.audienceReview ?? null,

@@ -13,6 +13,7 @@ import { Pencil } from "lucide-react";
 
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
 import { CharacterModelUpload } from "@/components/character-model-upload";
+import { VoicePicker } from "@/components/voice-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -37,7 +38,7 @@ export function CharacterRoster({ scriptId, characters }: CharacterRosterProps) 
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {characters.map((character) => (
           <Card key={character.id} size="sm" className="h-full gap-2">
@@ -73,6 +74,15 @@ export function CharacterRoster({ scriptId, characters }: CharacterRosterProps) 
                 ))}
               </div>
               <p className="text-muted-foreground line-clamp-3 text-xs">{character.motivation}</p>
+
+              <Separator />
+
+              <div>
+                <p className="text-muted-foreground mb-1 text-[10px] font-medium tracking-wide uppercase">
+                  Voice
+                </p>
+                <VoicePicker scriptId={scriptId} character={character} />
+              </div>
 
               <Separator />
 

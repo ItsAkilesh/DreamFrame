@@ -6,9 +6,7 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Box, ChevronsUpDown, Clapperboard, Film, Users } from "lucide-react";
+import { Box, ChevronsUpDown, Clapperboard, Users } from "lucide-react";
 
 import { ActAccordionItem } from "@/components/act-accordion-item";
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
@@ -50,8 +48,6 @@ export function AppSidebar({
   isCharactersActive,
   onViewCharacters,
 }: AppSidebarProps) {
-  const router = useRouter();
-
   // Stable array reference across re-renders of the same script — Base UI's
   // Accordion warns if an uncontrolled defaultValue's *reference* changes
   // after mount, and `.map()` would otherwise allocate a new array on every
@@ -79,7 +75,11 @@ export function AppSidebar({
     <Sidebar>
       <SidebarHeader className="gap-3 px-3 py-3">
         <div className="flex items-center gap-2 px-1">
-          <Film className="size-5 shrink-0" />
+          <img
+            src="/DreamFrame.png"
+            alt=""
+            className="size-8 shrink-0 rounded-lg"
+          />
           <span className="font-semibold tracking-tight">DreamFrame</span>
         </div>
         <ScriptUploadDialog />
@@ -110,7 +110,9 @@ export function AppSidebar({
                     {allScripts.map((s) => (
                       <DropdownMenuItem
                         key={s.id}
-                        onClick={() => router.push(`/?scriptId=${s.id}`)}
+                        onClick={() => {
+                          window.location.assign(`/?scriptId=${s.id}`);
+                        }}
                         data-active={s.id === script.id || undefined}
                         className="data-active:bg-accent data-active:text-accent-foreground"
                       >
@@ -201,20 +203,20 @@ export function AppSidebar({
             3D
           </SidebarGroupLabel>
           <SidebarGroupContent className="flex flex-col gap-1.5 px-2">
-            <Link
+            <a
               href="/model"
               className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-medium hover:bg-sidebar-accent"
             >
               <Box className="size-3.5 shrink-0" />
               <span className="truncate">3D Viewer</span>
-            </Link>
-            <Link
+            </a>
+            <a
               href={sceneHref}
               className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm hover:bg-sidebar-accent"
             >
               <Clapperboard className="size-3.5 shrink-0" />
               <span className="truncate">{sceneLabel}</span>
-            </Link>
+            </a>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

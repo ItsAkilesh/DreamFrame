@@ -19,6 +19,7 @@ const maya: Character = {
   baselineEmotion: "guarded",
   color: "#ef4444",
   modelAsset: null,
+  voiceId: null,
 };
 
 const detected: Recommendation[] = [

@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Loader2, Square } from "lucide-react";
+import { GitBranch, Loader2, Square, Volume2, VolumeX } from "lucide-react";
 
 import { SimulationStage } from "@/components/simulation-stage";
 import { TranscriptView } from "@/components/transcript-view";
@@ -56,12 +56,27 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
   // them out at speech speed (voiced where possible) instead of revealing
   // each line the instant it's generated. isLive keeps it waiting for more
   // rather than stopping once it catches up to what's arrived so far.
-  const { currentIndex, currentTurn, isWaitingForMore } = useTurnPlayback({
+  const {
+    currentIndex,
+    currentTurn,
+    hasStartedCurrentTurn,
+    revealedIndex,
+    isWaitingForMore,
+    isMuted,
+    toggleMute,
+    primeAudio,
+  } = useTurnPlayback({
     turns,
+    characters,
     isLive: isRunning,
     autoPlay: true,
+    sceneContext: `${scene.title}. ${scene.toneTarget}`,
   });
-  const revealedTurns = turns.slice(0, currentIndex + 1);
+  // Captions appear only once their audio actually begins. This keeps what
+  // the user sees and hears locked to the same turn instead of showing text
+  // while ElevenLabs is still synthesizing it.
+  const revealedTurns = revealedIndex >= 0 ? turns.slice(0, revealedIndex + 1) : [];
+  const activeTurn = hasStartedCurrentTurn ? currentTurn : null;
 
   // Keep the latest *revealed* (spoken) line in view, not the latest one to
   // have arrived from the server — those can race ahead of playback.
@@ -71,6 +86,11 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
   }, [currentIndex]);
 
   async function runSimulation() {
+    // Called directly from a click handler — this must stay the first thing
+    // that happens, synchronously, so the audio element gets "activated" by
+    // that same click and later voiced turns aren't silently blocked by the
+    // browser's autoplay policy (see primeAudio's own comment).
+    primeAudio();
     const controller = new AbortController();
     abortControllerRef.current = controller;
     setTurns([]);
@@ -106,7 +126,7 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
         for (const line of lines) {
           if (!line.trim()) continue;
           const parsed = JSON.parse(line) as
-            | { characterId: string; text: string; turnIndex: number; action: string; animationAssetId: string | null }
+            | { characterId: string; text: string; turnIndex: number; action: string; voiceDirection?: string; animationAssetId: string | null }
             | { done: true; runId: string }
             | { status: "reviewing" }
             | { error: string };
@@ -125,6 +145,7 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
                 characterId: parsed.characterId,
                 text: parsed.text,
                 action: parsed.action,
+                voiceDirection: parsed.voiceDirection,
                 animationAssetId: parsed.animationAssetId,
               },
             ]);
@@ -184,25 +205,35 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
                 ? "Last simulation"
                 : "Scene preview"}
         </p>
-        {isRunning ? (
-          <Button size="sm" variant="destructive" className="gap-2" onClick={stopSimulation}>
-            <Square className="size-4" />
-            Stop
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="icon-sm"
+            variant="outline"
+            aria-label={isMuted ? "Unmute" : "Mute"}
+            onClick={toggleMute}
+          >
+            {isMuted ? <VolumeX /> : <Volume2 />}
           </Button>
-        ) : (
-          <Button size="sm" variant="outline" className="gap-2" onClick={() => void runSimulation()}>
-            <GitBranch className="size-4" />
-            {turns.length > 0 ? "Run again" : "Simulate Branch Impact"}
-          </Button>
-        )}
+          {isRunning ? (
+            <Button size="sm" variant="destructive" className="gap-2" onClick={stopSimulation}>
+              <Square className="size-4" />
+              Stop
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => void runSimulation()}>
+              <GitBranch className="size-4" />
+              {turns.length > 0 ? "Run again" : "Simulate Branch Impact"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SimulationStage
           scene={scene}
           characters={characters}
-          speakingCharacterId={currentTurn?.characterId ?? null}
-          animationAssetId={currentTurn?.animationAssetId}
+          speakingCharacterId={activeTurn?.characterId ?? null}
+          animationAssetId={activeTurn?.animationAssetId}
           className="bg-muted/40 h-80 overflow-hidden rounded-md"
         />
 

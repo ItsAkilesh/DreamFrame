@@ -26,6 +26,12 @@ const CharacterSchema = new Schema(
     baselineEmotion: { type: String, required: true },
     color: { type: String, required: true },
     modelAsset: { type: CharacterModelAssetSchema, default: null },
+    // An ElevenLabs voice id manually assigned in the character roster
+    // (src/components/voice-picker.tsx). Null means "not assigned yet" —
+    // simulation playback falls back to a deterministic per-character
+    // default (src/lib/voice/voices.ts) rather than treating null as an
+    // error, so an un-configured cast still sounds distinct.
+    voiceId: { type: String, default: null },
   },
   { _id: true }
 );
@@ -120,6 +126,7 @@ const SimulationTurnSchema = new Schema(
     text: { type: String, required: true },
     turnIndex: { type: Number, required: true },
     action: { type: String, default: "" },
+    voiceDirection: { type: String, default: null },
     animationAssetId: { type: String, default: null },
   },
   { _id: false }

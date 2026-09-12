@@ -63,6 +63,7 @@ export async function POST(
     baselineEmotion: doc.baselineEmotion,
     color: doc.color,
     modelAsset: null,
+    voiceId: doc.voiceId ?? null,
   });
 
   try {

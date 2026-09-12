@@ -17,6 +17,7 @@ const maya: Character = {
   baselineEmotion: "guarded",
   color: "#ef4444",
   modelAsset: null,
+  voiceId: null,
 };
 
 const ravi: Character = {
@@ -27,6 +28,7 @@ const ravi: Character = {
   baselineEmotion: "controlled anger",
   color: "#3b82f6",
   modelAsset: null,
+  voiceId: null,
 };
 
 function turn(characterId: string, text: string): SimulationTurn {

@@ -19,6 +19,9 @@ export const maxDuration = 30; // comfortably past synthesizeSpeech's own 10s bu
 const TtsRequestSchema = z.object({
   text: z.string().min(1).max(500),
   voiceId: z.string().min(1),
+  action: z.string().max(300).optional(),
+  voiceDirection: z.string().max(80).optional(),
+  sceneContext: z.string().max(500).optional(),
 });
 
 function jsonError(message: string, status: number) {
@@ -33,7 +36,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const audio = await synthesizeSpeech(parsed.data.text, parsed.data.voiceId);
+    const audio = await synthesizeSpeech(parsed.data.text, parsed.data.voiceId, {
+      action: parsed.data.action,
+      voiceDirection: parsed.data.voiceDirection,
+      sceneContext: parsed.data.sceneContext,
+    });
     return new NextResponse(audio, {
       headers: {
         "Content-Type": "audio/mpeg",

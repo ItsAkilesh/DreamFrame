@@ -32,6 +32,7 @@ function character(id: string, name: string, motivation = "wants to be believed"
     baselineEmotion: "guarded",
     color: "#ef4444",
     modelAsset: null,
+    voiceId: null,
   };
 }
 

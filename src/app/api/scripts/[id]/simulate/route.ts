@@ -39,6 +39,7 @@ interface CharacterSubdoc {
     uploadedAt: Date;
     previewUrl: string | null;
   } | null;
+  voiceId?: string | null;
 }
 
 export const maxDuration = 120;
@@ -92,6 +93,7 @@ export async function POST(
       modelAsset: c.modelAsset
         ? { ...c.modelAsset, uploadedAt: c.modelAsset.uploadedAt.toISOString() }
         : null,
+      voiceId: c.voiceId ?? null,
     }));
 
   if (characters.length === 0) {
@@ -107,6 +109,7 @@ export async function POST(
         text: string;
         turnIndex: number;
         action: string;
+        voiceDirection: string;
         animationAssetId: string | null;
       }[] = [];
       // request.signal reflects the client disconnecting (its own

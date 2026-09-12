@@ -57,7 +57,7 @@ function getOpenAIApiKey() {
   throw new Error("OPENAI_API_KEY is not set (checked .env.local and the environment)");
 }
 
-const VISION_MODEL = "gpt-5.6-luna";
+const VISION_MODEL = "gpt-5.6-terra";
 const LabelSchema = z.object({
   name: z
     .string()

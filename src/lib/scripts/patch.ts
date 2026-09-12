@@ -47,6 +47,7 @@ export function characterPatchFields(patch: CharacterPatch) {
     traits: patch.traits,
     baselineEmotion: patch.baselineEmotion,
     color: patch.color,
+    voiceId: patch.voiceId,
   });
 }
 

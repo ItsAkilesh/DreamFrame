@@ -33,6 +33,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { loadLabeledAnimations } from "@/lib/animation-match";
 import { openai, SIMULATION_MODEL } from "@/lib/openai";
 import type { Character } from "@/lib/types";
+import { VOICE_DIRECTIONS } from "@/lib/voice/emotional-delivery";
 
 const MAX_TURNS = 16; // accepted (react:true) turns
 const MAX_THINK_ATTEMPTS = 40; // bounds total LLM calls even if most decline to react
@@ -90,6 +91,10 @@ export interface SimulationTurnResult {
   // Short free-text flavor for the caption (e.g. "relieved, sits back down")
   // — display only, never used to pick the animation.
   action: string;
+  // An enum-constrained acting direction used only by Eleven v3. Keeping it
+  // separate from the visible physical action prevents TTS markup leaking
+  // into captions and gives every generated line an intentional delivery.
+  voiceDirection: (typeof VOICE_DIRECTIONS)[number];
   // The asset library's "animation" category id (its filename), resolved
   // directly from the character's enum-constrained clip-name choice — always
   // either a real playable clip or null ("none"), never a guessed match.
@@ -112,6 +117,7 @@ function actDecisionSchema(emoteNames: string[]) {
     reason: z.string(),
     line: z.string().nullable(),
     emote: z.enum(emoteEnum),
+    voiceDirection: z.enum(VOICE_DIRECTIONS),
     emotions: z.object(Object.fromEntries(EMOTION_AXES.map((axis) => [axis, z.number()]))),
   });
 }
@@ -155,6 +161,8 @@ Something may have happened — decide whether YOU would react to it right now. 
 
 If you do react: give one short line of dialogue (or set "line" to null for a purely physical/wordless beat), a brief present-tense flavor note in "reason" (a few words, for a stage direction — not read aloud), and pick "emote" from the exact list below, or "none" if nothing fits.
 Valid emotes: ${emoteNames.join(", ") || "(none available yet)"}, or "none".
+
+Choose one voiceDirection that describes how this exact line should be performed. Use the scene, your current feelings, and the recent exchange—not just punctuation. Pick "neutral" only when an emotionally marked delivery would be unnatural. Valid voice directions: ${VOICE_DIRECTIONS.join(", ")}.
 
 Also report your updated feelings (0-1) on: ${EMOTION_AXES.join(", ")}.`;
 }
@@ -247,6 +255,7 @@ export async function* simulateConversation(
       characterId: agent.character.id,
       text: decision.line,
       action: decision.reason,
+      voiceDirection: decision.voiceDirection,
       animationAssetId: emoteName ? (emoteToAssetId.get(emoteName) ?? null) : null,
     };
   }

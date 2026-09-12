@@ -36,9 +36,9 @@ function getOpenAIApiKey(): string {
 export const openai = new OpenAI({ apiKey: getOpenAIApiKey() });
 
 // Small, cheap model used for script structuring.
-export const SCRIPT_PARSER_MODEL = "gpt-5.6-luna";
+export const SCRIPT_PARSER_MODEL = "gpt-5.6-terra";
 
 // Used for per-turn character dialogue generation. Same model for now —
 // swap here if conversation quality needs a stronger model; call sites
 // don't need to change.
-export const SIMULATION_MODEL = "gpt-5.6-luna";
+export const SIMULATION_MODEL = "gpt-5.6-terra";

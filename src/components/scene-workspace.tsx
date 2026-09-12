@@ -77,7 +77,7 @@ export function SceneWorkspace({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
       {showScene && (
         <ScenePlayer
           scriptId={scriptId}
@@ -87,7 +87,7 @@ export function SceneWorkspace({
         />
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button
           variant={showScene ? "secondary" : "outline"}
           size="sm"
@@ -112,7 +112,7 @@ export function SceneWorkspace({
         <AudiencePersonasDialog scriptId={scriptId} customPersonas={audiencePersonas} />
       </div>
 
-      <Card className="flex-1">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -135,7 +135,7 @@ export function SceneWorkspace({
             />
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           <EditableField
             label="scene text"
             value={scene.text}

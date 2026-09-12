@@ -33,6 +33,9 @@ export const CharacterPatchSchema = z.object({
   traits: z.array(z.string()).max(MAX_TRAITS).optional(),
   baselineEmotion: z.string().optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "color must be a 6-digit hex code").optional(),
+  // Nullable (not just optional): "clear the assignment" is a real, distinct
+  // patch from "leave whatever it was" — omitting the field vs. sending null.
+  voiceId: z.string().nullable().optional(),
 });
 
 export const ScriptPatchRequestSchema = z.discriminatedUnion("type", [
