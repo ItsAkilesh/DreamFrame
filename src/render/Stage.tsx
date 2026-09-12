@@ -11,30 +11,15 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
 
+import { PROP_DIMENSIONS } from "@/assets/manifest";
 import { resolvePose } from "@/render/blocking";
 import type { PrevisSpec } from "@/schema/previsSpec";
 
 interface StageProps {
   spec: PrevisSpec;
   time: number;
+  highlightedCharacterIds?: string[];
 }
-
-const PROP_DIMENSIONS: Record<string, [number, number, number]> = {
-  dining_table: [1.5, 0.75, 0.9],
-  desk: [1.4, 0.75, 0.7],
-  chair: [0.45, 0.9, 0.45],
-  stool: [0.35, 0.6, 0.35],
-  sofa: [1.8, 0.8, 0.85],
-  armchair: [0.8, 0.9, 0.85],
-  bed: [1.6, 0.5, 2.0],
-  counter: [2.0, 0.9, 0.6],
-  shelf: [0.9, 1.8, 0.3],
-  lamp: [0.3, 1.5, 0.3],
-  tv: [1.1, 0.65, 0.08],
-  plant: [0.4, 1.1, 0.4],
-  door: [0.9, 2.0, 0.05],
-  window: [1.2, 1.4, 0.05],
-};
 
 function Room({ dimensions }: { dimensions: { w: number; d: number; h: number } }) {
   const { w, d, h } = dimensions;
@@ -83,10 +68,12 @@ function CharacterCapsule({
   character,
   time,
   spec,
+  highlighted,
 }: {
   character: PrevisSpec["cast"][number];
   time: number;
   spec: PrevisSpec;
+  highlighted: boolean;
 }) {
   const radius = 0.25;
   const totalHeight = 1.75;
@@ -103,10 +90,18 @@ function CharacterCapsule({
   const [x, , z] = pose.position;
 
   return (
-    <mesh position={[x, totalHeight / 2, z]} rotation={[0, pose.rotationY, 0]} castShadow>
-      <capsuleGeometry args={[radius, cylinderLength, 4, 12]} />
-      <meshLambertMaterial color={character.color} />
-    </mesh>
+    <group>
+      <mesh position={[x, totalHeight / 2, z]} rotation={[0, pose.rotationY, 0]} castShadow>
+        <capsuleGeometry args={[radius, cylinderLength, 4, 12]} />
+        <meshLambertMaterial color={character.color} />
+      </mesh>
+      {highlighted && (
+        <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[radius + 0.08, radius + 0.18, 32]} />
+          <meshBasicMaterial color="#ffd23f" />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -172,7 +167,7 @@ function ThreePointLights({ lights }: { lights: PrevisSpec["set"]["lights"] }) {
   );
 }
 
-export function Stage({ spec, time }: StageProps) {
+export function Stage({ spec, time, highlightedCharacterIds = [] }: StageProps) {
   const { w, d } = spec.set.dimensions;
   const camDistance = Math.max(w, d) * 1.3;
 
@@ -187,7 +182,13 @@ export function Stage({ spec, time }: StageProps) {
         <Prop key={prop.id} prop={prop} />
       ))}
       {spec.cast.map((character) => (
-        <CharacterCapsule key={character.id} character={character} time={time} spec={spec} />
+        <CharacterCapsule
+          key={character.id}
+          character={character}
+          time={time}
+          spec={spec}
+          highlighted={highlightedCharacterIds.includes(character.id)}
+        />
       ))}
       <OrbitControls target={[0, 1.2, 0]} />
     </Canvas>

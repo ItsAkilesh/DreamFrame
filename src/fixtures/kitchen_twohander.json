@@ -34,10 +34,10 @@
     }
   ],
   "cameras": [
-    { "id": "cam_a", "label": "Wide", "position": [0, 1.6, 4.2], "lookAt": [0.15, 1.5, 0.3], "lens_mm": 28 },
-    { "id": "cam_b", "label": "OTS Mara", "position": [-2.1, 1.6, 1.8], "lookAt": [1.4, 1.68, 0.6], "lens_mm": 50 },
-    { "id": "cam_c", "label": "OTS Julian", "position": [1.9, 1.6, 1.9], "lookAt": [-1.1, 1.22, 0], "lens_mm": 50 },
-    { "id": "cam_d", "label": "Clean CU Mara", "position": [-0.3, 1.55, 1.5], "lookAt": [-1.1, 1.22, 0], "lens_mm": 85 }
+    { "id": "cam_a", "label": "Wide", "position": [0, 1.6, 2.0], "lookAt": [0.15, 0.78, 0.3], "lens_mm": 18 },
+    { "id": "cam_b", "label": "OTS Mara", "position": [0.9, 1.6, 1.5], "lookAt": [-1.1, 0.70, 0], "lens_mm": 50 },
+    { "id": "cam_c", "label": "OTS Julian", "position": [-1.0, 1.6, 1.0], "lookAt": [1.4, 1.30, 0.6], "lens_mm": 60 },
+    { "id": "cam_d", "label": "Clean CU Mara", "position": [-0.3, 1.55, 1.5], "lookAt": [-1.1, 1.00, 0], "lens_mm": 85 }
   ],
   "beats": [
     { "id": "b_001", "startTime": 0.0, "duration": 2.4,
@@ -83,7 +83,7 @@
     { "id": "b_011", "startTime": 21.2, "duration": 1.8,
       "line": null,
       "blocking": [ { "characterId": "ch_mara", "action": "gesture", "to": null, "facing": null, "clip": "gesture_shrug" } ],
-      "shot": { "cameraId": "cam_a", "subjectId": "ch_mara", "move": "static" } },
+      "shot": { "cameraId": "cam_d", "subjectId": "ch_mara", "move": "static" } },
     { "id": "b_012", "startTime": 23.0, "duration": 2.6,
       "line": { "characterId": "ch_mara", "text": "Okay. I'll stay.", "emotion": "warm" },
       "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle" } ],

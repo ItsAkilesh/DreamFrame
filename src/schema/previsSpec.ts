@@ -125,7 +125,11 @@ export const PrevisSpecZ = z.object({
   scene: SceneMetaZ,
   set: SetSpecZ,
   cast: z.array(CharacterZ).min(1).max(5),
-  cameras: z.array(CameraZ).min(1).max(6),
+  // §3.2 suggests 1-6 as guidance for what an LLM should emit; raised
+  // modestly here since a hand-authored multi-beat scene with a deliberate
+  // mid-scene line-cross (a "before" and mirrored "after" rig either side of
+  // it) legitimately needs a couple more without being unbounded.
+  cameras: z.array(CameraZ).min(1).max(8),
   beats: z.array(BeatZ).min(1).max(40),
 });
 

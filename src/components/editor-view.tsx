@@ -1,22 +1,26 @@
 // editor-view.tsx
 // Purpose: Client shell for the Editor View — owns the playhead, advances it
-//          during playback, and composes the (SSR-disabled) 3D Stage with
-//          the Timeline. Read plan.md §6.6 before touching this: `three`
-//          must never render on the server.
+//          during playback, runs the analyzer, and composes the (SSR-
+//          disabled) 3D Stage with the Timeline and NotesPanel. Read
+//          plan.md §6.6 before touching this: `three` must never render on
+//          the server.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { NotesPanel } from "@/ui/NotesPanel";
 import { Timeline } from "@/ui/Timeline";
+import { runAnalyzer } from "@/analyze/index";
 import { specDuration } from "@/render/blocking";
-import type { PrevisSpec } from "@/schema/previsSpec";
+import { usePlayhead } from "@/render/usePlayhead";
+import type { Note, PrevisSpec } from "@/schema/previsSpec";
 
 const Stage = dynamic(() => import("@/render/Stage").then((m) => m.Stage), {
   ssr: false,
@@ -32,38 +36,16 @@ interface EditorViewProps {
 }
 
 export function EditorView({ spec }: EditorViewProps) {
-  const [time, setTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const duration = specDuration(spec);
-  const lastTickRef = useRef<number | null>(null);
+  const { time, isPlaying, setTime, togglePlay } = usePlayhead(duration);
+  const { notes, totalCount } = useMemo(() => runAnalyzer(spec), [spec]);
+  const [highlighted, setHighlighted] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!isPlaying) {
-      lastTickRef.current = null;
-      return;
-    }
-
-    let frame: number;
-    const tick = (now: number) => {
-      const last = lastTickRef.current ?? now;
-      const delta = (now - last) / 1000;
-      lastTickRef.current = now;
-
-      setTime((prev) => {
-        const next = prev + delta;
-        if (next >= duration) {
-          setIsPlaying(false);
-          return duration;
-        }
-        return next;
-      });
-
-      frame = requestAnimationFrame(tick);
-    };
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [isPlaying, duration]);
+  function handleNoteClick(note: Note) {
+    const firstBeat = spec.beats.find((b) => b.id === note.beatIds[0]);
+    if (firstBeat) setTime(firstBeat.startTime);
+    setHighlighted(note.characterIds);
+  }
 
   return (
     <div className="flex h-svh flex-col">
@@ -81,23 +63,22 @@ export function EditorView({ spec }: EditorViewProps) {
         <span className="text-muted-foreground text-sm">{spec.scene.slugline}</span>
       </header>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1">
-          <Stage spec={spec} time={time} />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1">
+            <Stage spec={spec} time={time} highlightedCharacterIds={highlighted} />
+          </div>
+          <Timeline
+            spec={spec}
+            time={time}
+            onTimeChange={setTime}
+            isPlaying={isPlaying}
+            onTogglePlay={togglePlay}
+          />
         </div>
-        <Timeline
-          spec={spec}
-          time={time}
-          onTimeChange={(next) => {
-            setTime(next);
-            setIsPlaying(false);
-          }}
-          isPlaying={isPlaying}
-          onTogglePlay={() => {
-            if (!isPlaying && time >= duration) setTime(0);
-            setIsPlaying((p) => !p);
-          }}
-        />
+        <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l">
+          <NotesPanel notes={notes} totalCount={totalCount} onNoteClick={handleNoteClick} />
+        </aside>
       </div>
     </div>
   );

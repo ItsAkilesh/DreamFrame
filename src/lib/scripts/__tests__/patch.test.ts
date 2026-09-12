@@ -29,6 +29,7 @@ const baseCharacter: Character = {
   traits: ["guarded"],
   baselineEmotion: "controlled",
   color: "var(--chart-1)",
+  modelAsset: null,
 };
 
 describe("mergeScenePatch", () => {
@@ -81,5 +82,16 @@ describe("mergeCharacterPatch", () => {
     expect(result.traits).toEqual(["guarded", "sharp-tongued"]);
     expect(result.name).toBe(baseCharacter.name);
     expect(result.motivation).toBe(baseCharacter.motivation);
+  });
+
+  it("updates the cue color", () => {
+    const result = mergeCharacterPatch(baseCharacter, {
+      type: "character",
+      id: "ch_1",
+      color: "#ff8800",
+    });
+
+    expect(result.color).toBe("#ff8800");
+    expect(result.name).toBe(baseCharacter.name);
   });
 });

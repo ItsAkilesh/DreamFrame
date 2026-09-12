@@ -46,6 +46,7 @@ export function characterPatchFields(patch: CharacterPatch) {
     motivation: patch.motivation,
     traits: patch.traits,
     baselineEmotion: patch.baselineEmotion,
+    color: patch.color,
   });
 }
 

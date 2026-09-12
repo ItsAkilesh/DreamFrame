@@ -17,6 +17,16 @@
 /.next/
 /out/
 
+# user-uploaded character model files (runtime data, not source)
+/public/uploads/
+
+# shared asset library (Mixamo exports, etc.) — dropped in locally, not source
+/public/assets/library/
+
+# cached preview thumbnails generated client-side for the asset library —
+# derived from the (also gitignored) library files, safe to regenerate
+/public/assets/library-thumbnails/
+
 # production
 /build
 

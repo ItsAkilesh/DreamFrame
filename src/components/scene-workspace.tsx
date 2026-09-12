@@ -1,19 +1,24 @@
 // scene-workspace.tsx
 // Purpose: Center panel — selected scene's text, character roster, and the
 //          simulation actions available on it. Scene title, tone, text, and
-//          cast are editable, correcting the AI structuring pass. Simulation
-//          actions are disabled placeholders until that engine is wired up.
+//          cast are editable, correcting the AI structuring pass. Motivation
+//          Stress Test / Chemistry Simulator remain disabled placeholders;
+//          Simulate Branch Impact runs the real turn-by-turn agent engine.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Sparkles, Users } from "lucide-react";
+import { Clapperboard, LucideIcon, Sparkles, Users } from "lucide-react";
 
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
 import { EditableField } from "@/components/editable-field";
 import { SceneCharactersDialog } from "@/components/scene-characters-dialog";
+import { ScenePlayer } from "@/components/scene-player";
+import { SimulationDialog } from "@/components/simulation-dialog";
+import { SimulationRunList } from "@/components/simulation-run-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -24,19 +29,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { patchScript } from "@/lib/scripts/patch-client";
-import type { Character, Scene } from "@/lib/types";
+import type { Character, Scene, SimulationRun } from "@/lib/types";
 
 interface SceneWorkspaceProps {
   scriptId: string;
   scene: Scene;
   characters: Character[];
+  simulationRuns: SimulationRun[];
 }
 
 function DisabledAction({
   icon: Icon,
   label,
 }: {
-  icon: typeof GitBranch;
+  icon: LucideIcon;
   label: string;
 }) {
   return (
@@ -54,11 +60,18 @@ function DisabledAction({
   );
 }
 
-export function SceneWorkspace({ scriptId, scene, characters }: SceneWorkspaceProps) {
+export function SceneWorkspace({
+  scriptId,
+  scene,
+  characters,
+  simulationRuns,
+}: SceneWorkspaceProps) {
   const router = useRouter();
+  const [showScene, setShowScene] = useState(false);
   const sceneCharacters = characters.filter((character) =>
     scene.characterIds.includes(character.id)
   );
+  const sceneRuns = simulationRuns.filter((run) => run.sceneId === scene.id);
 
   async function saveTitle(next: string) {
     await patchScript(scriptId, { type: "scene", id: scene.id, title: next });
@@ -77,8 +90,19 @@ export function SceneWorkspace({ scriptId, scene, characters }: SceneWorkspacePr
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      {showScene && <ScenePlayer scene={scene} characters={sceneCharacters} />}
+
       <div className="flex flex-wrap items-center gap-2">
-        <DisabledAction icon={GitBranch} label="Simulate Branch Impact" />
+        <Button
+          variant={showScene ? "secondary" : "outline"}
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowScene((v) => !v)}
+        >
+          <Clapperboard className="size-4" />
+          Show Scene
+        </Button>
+        <SimulationDialog scriptId={scriptId} scene={scene} characters={sceneCharacters} />
         <DisabledAction icon={Sparkles} label="Motivation Stress Test" />
         <DisabledAction icon={Users} label="Chemistry Simulator" />
       </div>
@@ -147,6 +171,13 @@ export function SceneWorkspace({ scriptId, scene, characters }: SceneWorkspacePr
               ))}
             </div>
           </div>
+
+          {sceneRuns.length > 0 && (
+            <>
+              <Separator />
+              <SimulationRunList runs={sceneRuns} characters={sceneCharacters} />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

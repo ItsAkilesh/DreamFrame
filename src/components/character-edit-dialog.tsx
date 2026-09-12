@@ -23,9 +23,32 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ColorPicker,
+  ColorPickerAlpha,
+  ColorPickerEyeDropper,
+  ColorPickerFormat,
+  ColorPickerHue,
+  ColorPickerOutput,
+  ColorPickerSelection,
+} from "@/components/kibo-ui/color-picker";
 import { patchScript } from "@/lib/scripts/patch-client";
 import type { Character } from "@/lib/types";
+
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+// Older/AI-assigned characters carry a theme token (e.g. "var(--chart-1)"),
+// which a native color input can't parse — fall back to a neutral hex so it
+// doesn't silently render as black.
+function normalizeToHex(color: string): string {
+  return HEX_COLOR_PATTERN.test(color) ? color : "#a3a3a3";
+}
 
 interface CharacterEditDialogProps {
   scriptId: string;
@@ -42,6 +65,7 @@ export function CharacterEditDialog({ scriptId, character, trigger }: CharacterE
   const [motivation, setMotivation] = useState(character.motivation);
   const [baselineEmotion, setBaselineEmotion] = useState(character.baselineEmotion);
   const [traitsText, setTraitsText] = useState(character.traits.join(", "));
+  const [color, setColor] = useState(normalizeToHex(character.color));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +74,7 @@ export function CharacterEditDialog({ scriptId, character, trigger }: CharacterE
     setMotivation(character.motivation);
     setBaselineEmotion(character.baselineEmotion);
     setTraitsText(character.traits.join(", "));
+    setColor(normalizeToHex(character.color));
     setError(null);
   }
 
@@ -63,6 +88,7 @@ export function CharacterEditDialog({ scriptId, character, trigger }: CharacterE
         name: name.trim(),
         motivation: motivation.trim(),
         baselineEmotion: baselineEmotion.trim(),
+        color,
         traits: traitsText
           .split(",")
           .map((trait) => trait.trim())
@@ -118,6 +144,64 @@ export function CharacterEditDialog({ scriptId, character, trigger }: CharacterE
               onChange={(event) => setBaselineEmotion(event.target.value)}
               disabled={isSaving}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Cue color</Label>
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSaving}
+                    className="w-fit gap-2"
+                  />
+                }
+              >
+                <span
+                  className="size-4 shrink-0 rounded-full ring-1 ring-border"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="font-mono text-xs uppercase">{color}</span>
+              </PopoverTrigger>
+              <PopoverContent className="w-64">
+                <ColorPicker
+                  // Not `value`: the upstream component's controlled-value
+                  // effect misparses a hex string through Color.rgb()
+                  // (which expects an RGB array/object), corrupting the
+                  // hue/saturation/lightness state. `defaultValue` seeds the
+                  // picker correctly and is enough since the dialog remounts
+                  // it fresh on every open.
+                  defaultValue={color}
+                  onChange={(value) => {
+                    // ColorPickerProps types onChange loosely via Color.rgb's
+                    // overloaded ColorLike param, but the component always
+                    // invokes it with a concrete [r, g, b, a] tuple.
+                    const [r, g, b] = value as [number, number, number, number];
+                    setColor(
+                      `#${[r, g, b]
+                        .map((channel) =>
+                          Math.round(channel).toString(16).padStart(2, "0")
+                        )
+                        .join("")}`
+                    );
+                  }}
+                >
+                  <ColorPickerSelection className="h-32" />
+                  <div className="flex items-center gap-2">
+                    <ColorPickerEyeDropper />
+                    <div className="flex w-full flex-col gap-1.5">
+                      <ColorPickerHue />
+                      <ColorPickerAlpha />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ColorPickerOutput />
+                    <ColorPickerFormat />
+                  </div>
+                </ColorPicker>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="character-traits">Traits (comma-separated, up to 5)</Label>

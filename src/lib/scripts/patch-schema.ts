@@ -32,6 +32,7 @@ export const CharacterPatchSchema = z.object({
   motivation: z.string().optional(),
   traits: z.array(z.string()).max(MAX_TRAITS).optional(),
   baselineEmotion: z.string().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "color must be a 6-digit hex code").optional(),
 });
 
 export const ScriptPatchRequestSchema = z.discriminatedUnion("type", [

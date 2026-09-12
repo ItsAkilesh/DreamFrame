@@ -7,6 +7,17 @@
 
 import { Schema, model, models, type InferSchemaType } from "mongoose";
 
+const CharacterModelAssetSchema = new Schema(
+  {
+    fileName: { type: String, required: true },
+    format: { type: String, required: true },
+    url: { type: String, required: true },
+    uploadedAt: { type: Date, required: true },
+    previewUrl: { type: String, default: null },
+  },
+  { _id: false }
+);
+
 const CharacterSchema = new Schema(
   {
     name: { type: String, required: true },
@@ -14,6 +25,7 @@ const CharacterSchema = new Schema(
     traits: { type: [String], default: [] },
     baselineEmotion: { type: String, required: true },
     color: { type: String, required: true },
+    modelAsset: { type: CharacterModelAssetSchema, default: null },
   },
   { _id: true }
 );
@@ -52,6 +64,23 @@ const ActSchema = new Schema(
   { _id: true }
 );
 
+const SimulationTurnSchema = new Schema(
+  {
+    characterId: { type: Schema.Types.ObjectId, required: true },
+    text: { type: String, required: true },
+    turnIndex: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
+const SimulationRunSchema = new Schema(
+  {
+    sceneId: { type: Schema.Types.ObjectId, required: true },
+    transcript: { type: [SimulationTurnSchema], default: [] },
+  },
+  { _id: true, timestamps: true }
+);
+
 const ScriptSchema = new Schema(
   {
     title: { type: String, required: true },
@@ -59,6 +88,7 @@ const ScriptSchema = new Schema(
     acts: { type: [ActSchema], default: [] },
     scenes: { type: [SceneSchema], default: [] },
     characters: { type: [CharacterSchema], default: [] },
+    simulationRuns: { type: [SimulationRunSchema], default: [] },
   },
   { timestamps: true }
 );

@@ -6,12 +6,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { Film, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronsUpDown, Film, Users } from "lucide-react";
 
 import { ActAccordionItem } from "@/components/act-accordion-item";
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
 import { Accordion } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
 import {
   Sidebar,
@@ -21,19 +28,28 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import type { ScriptSummary } from "@/lib/get-current-script";
 import type { ScriptData } from "@/lib/types";
 
 interface AppSidebarProps {
   script: ScriptData | null;
+  allScripts: ScriptSummary[];
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
+  isCharactersActive: boolean;
+  onViewCharacters: () => void;
 }
 
 export function AppSidebar({
   script,
+  allScripts,
   selectedSceneId,
   onSelectScene,
+  isCharactersActive,
+  onViewCharacters,
 }: AppSidebarProps) {
+  const router = useRouter();
+
   // Stable array reference across re-renders of the same script — Base UI's
   // Accordion warns if an uncontrolled defaultValue's *reference* changes
   // after mount, and `.map()` would otherwise allocate a new array on every
@@ -61,7 +77,35 @@ export function AppSidebar({
         ) : (
           <>
             <SidebarGroup>
-              <SidebarGroupLabel>{script.title}</SidebarGroupLabel>
+              {allScripts.length > 1 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <SidebarGroupLabel
+                        className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full cursor-pointer items-center justify-between gap-1.5"
+                        render={<button type="button" />}
+                      />
+                    }
+                  >
+                    <span className="truncate">{script.title}</span>
+                    <ChevronsUpDown className="size-3.5 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {allScripts.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onClick={() => router.push(`/?scriptId=${s.id}`)}
+                        data-active={s.id === script.id || undefined}
+                        className="data-active:bg-accent data-active:text-accent-foreground"
+                      >
+                        <span className="truncate">{s.title}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <SidebarGroupLabel>{script.title}</SidebarGroupLabel>
+              )}
               <SidebarGroupContent>
                 <Accordion
                   key={script.id}
@@ -93,7 +137,13 @@ export function AppSidebar({
             </SidebarGroup>
 
             <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-1.5">
+              <SidebarGroupLabel
+                className={
+                  "flex items-center gap-1.5 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" +
+                  (isCharactersActive ? " bg-sidebar-accent text-sidebar-accent-foreground" : "")
+                }
+                render={<button type="button" onClick={onViewCharacters} />}
+              >
                 <Users className="size-3.5" />
                 Characters
               </SidebarGroupLabel>
