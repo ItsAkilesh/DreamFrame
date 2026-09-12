@@ -6,8 +6,9 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronsUpDown, Film, Users } from "lucide-react";
+import { Box, ChevronsUpDown, Clapperboard, Film, Users } from "lucide-react";
 
 import { ActAccordionItem } from "@/components/act-accordion-item";
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
@@ -28,6 +29,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import type { ScriptSummary } from "@/lib/get-current-script";
 import type { ScriptData } from "@/lib/types";
 
@@ -58,6 +60,20 @@ export function AppSidebar({
     () => script?.acts.map((act) => act.id) ?? [],
     [script]
   );
+
+  // The scene editor opens the selected scene when there is one, otherwise the
+  // bundled demo scene, so it is never a dead end.
+  const hasScene = Boolean(script && selectedSceneId);
+  // The offline demo script has no database rows behind it, so its scenes open
+  // their bundled PrevisSpec fixture instead of a ?scriptId lookup that would
+  // 404.
+  const demoFixture = selectedSceneId ? DEMO_SCENE_FIXTURE[selectedSceneId] : undefined;
+  const sceneHref = demoFixture
+    ? `/editor?fixture=${demoFixture}`
+    : hasScene
+      ? `/editor?scriptId=${script!.id}&sceneId=${selectedSceneId}`
+      : "/editor?fixture=office";
+  const sceneLabel = hasScene ? "Scene editor — this scene" : "Scene editor — demo scene";
 
   return (
     <Sidebar>
@@ -175,6 +191,32 @@ export function AppSidebar({
             </SidebarGroup>
           </>
         )}
+
+        {/* Always present, including when the database is unreachable and the
+            rest of the sidebar is empty — the 3D view must be reachable from
+            the dashboard without first uploading a script (plan.md §13). */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-1.5">
+            <Clapperboard className="size-3.5" />
+            3D
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="flex flex-col gap-1.5 px-2">
+            <Link
+              href="/model"
+              className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-medium hover:bg-sidebar-accent"
+            >
+              <Box className="size-3.5 shrink-0" />
+              <span className="truncate">3D Viewer</span>
+            </Link>
+            <Link
+              href={sceneHref}
+              className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm hover:bg-sidebar-accent"
+            >
+              <Clapperboard className="size-3.5 shrink-0" />
+              <span className="truncate">{sceneLabel}</span>
+            </Link>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>
   );

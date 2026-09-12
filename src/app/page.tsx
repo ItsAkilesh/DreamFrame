@@ -7,6 +7,7 @@
 // Date: 2026-09-12
 
 import { EditorShell } from "@/components/editor-shell";
+import { DEMO_SCRIPT } from "@/fixtures/demoScript";
 import { getAllScripts, getCurrentScript, getScriptById } from "@/lib/get-current-script";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +19,23 @@ interface HomeProps {
 export default async function Home({ searchParams }: HomeProps) {
   const { scriptId } = await searchParams;
 
-  const [script, allScripts] = await Promise.all([
-    scriptId ? getScriptById(scriptId) : getCurrentScript(),
-    getAllScripts(),
-  ]);
+  // A dead database must not blank the page (plan.md §10 rule 4, §13): the
+  // dashboard still renders its empty state, which offers the demo scene.
+  let script = null;
+  let allScripts: Awaited<ReturnType<typeof getAllScripts>> = [];
+  try {
+    [script, allScripts] = await Promise.all([
+      scriptId ? getScriptById(scriptId) : getCurrentScript(),
+      getAllScripts(),
+    ]);
+  } catch (error) {
+    // Fall back to the bundled demo script rather than an empty shell, so the
+    // dashboard is explorable with no database (plan.md §13, §15). Its title
+    // says "(offline)" — edits made against it will not persist.
+    console.error("dashboard: database unreachable, serving the demo script:", error);
+    script = DEMO_SCRIPT;
+    allScripts = [{ id: DEMO_SCRIPT.id, title: DEMO_SCRIPT.title }];
+  }
 
   // Remount on script change (including null -> a script, or script -> a
   // different script) so EditorShell's internal selected-scene state can't

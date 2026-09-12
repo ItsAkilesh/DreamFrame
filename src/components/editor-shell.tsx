@@ -9,13 +9,14 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Clapperboard } from "lucide-react";
+import { Box, Clapperboard } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AssetLibraryDialog } from "@/components/asset-library-dialog";
 import { CharacterRoster } from "@/components/character-roster";
 import { DashboardPanel } from "@/components/dashboard-panel";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
+import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import { SceneWorkspace } from "@/components/scene-workspace";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -53,6 +54,32 @@ function NoScriptUploaded() {
         </p>
       </div>
       <ScriptUploadDialog />
+
+      <div className="text-muted-foreground mt-2 text-sm">
+        <span>or open the 3D viewer</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          nativeButton={false}
+          render={<Link href="/model" />}
+        >
+          <Box className="size-4" />
+          3D Viewer
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          nativeButton={false}
+          render={<Link href="/editor?fixture=office" />}
+        >
+          <Clapperboard className="size-4" />
+          Scene editor — demo scene
+        </Button>
+      </div>
     </div>
   );
 }
@@ -123,7 +150,11 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               nativeButton={false}
               render={
                 <Link
-                  href={`/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`}
+                  href={
+                    DEMO_SCENE_FIXTURE[selectedScene.id]
+                      ? `/editor?fixture=${DEMO_SCENE_FIXTURE[selectedScene.id]}`
+                      : `/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`
+                  }
                 />
               }
             >
