@@ -45,6 +45,8 @@ import type { Pose } from "@/render/keyframes";
 import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
 import { SceneEnvironment } from "@/render/SceneEnvironment";
 import { useIdleAnimationAssetId } from "@/render/useIdleAnimationAsset";
+import { animationForCharacterAt } from "@/render/animationMap";
+import { useLabeledAnimations } from "@/render/useLabeledAnimations";
 import { CIRCLE_RADIUS as BAKED_CIRCLE_RADIUS } from "@/schema/fromScene";
 import type { PrevisSpec } from "@/schema/previsSpec";
 
@@ -268,6 +270,7 @@ export function Stage({
   const [target, setTarget] = useState<Object3D | null>(null);
   const [footprint, setFootprint] = useState<RoomFootprint>(DEFAULT_FOOTPRINT);
   const idleAssetId = useIdleAnimationAssetId();
+  const labeledAnimations = useLabeledAnimations();
 
   const canRenderSceneModel =
     sceneModelAsset != null && isPreviewableCharacterModelFormat(sceneModelAsset.format);
@@ -285,12 +288,26 @@ export function Stage({
     ? circleRadiusFor(footprint) * 2 + 2
     : Math.max(w, d) * 1.3;
 
-  const idleAnimationAsset: StageCharacterModelAsset | null = idleAssetId
-    ? {
-        url: `/assets/library/animations/${idleAssetId}`,
-        format: characterModelFormatFromFileName(idleAssetId) ?? "fbx",
-      }
-    : null;
+  const libraryAnimationAsset = (assetId: string | null): StageCharacterModelAsset | null =>
+    assetId
+      ? {
+          url: `/assets/library/animations/${assetId}`,
+          format: characterModelFormatFromFileName(assetId) ?? "fbx",
+        }
+      : null;
+
+  const idleAnimationAsset = libraryAnimationAsset(idleAssetId);
+
+  /**
+   * The speaking character plays a clip chosen from their line's emotion
+   * (animationMap.ts — a deterministic table, no model call); everyone else
+   * holds the shared idle. Falls back to idle whenever the library has no
+   * matching label, so an unlabeled library behaves exactly as before.
+   */
+  const animationAssetFor = (characterId: string): StageCharacterModelAsset | null => {
+    const chosen = animationForCharacterAt(spec, characterId, time, labeledAnimations);
+    return chosen ? libraryAnimationAsset(chosen.id) : idleAnimationAsset;
+  };
 
   // Read the pose straight off the dragged group: the gizmo mutates the
   // object directly, so this is the only place the new pose exists until it
@@ -333,7 +350,7 @@ export function Stage({
           time={time}
           spec={spec}
           modelAsset={characterModels?.[character.id]}
-          animationAsset={idleAnimationAsset}
+          animationAsset={animationAssetFor(character.id)}
           placementScale={placementScale}
           highlighted={highlightedCharacterIds.includes(character.id)}
           selected={character.id === selectedCharacterId}
