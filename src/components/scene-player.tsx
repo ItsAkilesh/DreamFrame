@@ -16,50 +16,74 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Loader2 } from "lucide-react";
+import { GitBranch, Loader2, Square } from "lucide-react";
 
 import { SimulationStage } from "@/components/simulation-stage";
 import { TranscriptView } from "@/components/transcript-view";
 import { Button } from "@/components/ui/button";
+import { type PlayableTurn, useTurnPlayback } from "@/lib/use-turn-playback";
 import type { Character, Scene } from "@/lib/types";
 
-interface LiveTurn {
-  characterId: string;
-  text: string;
-  action: string;
-  animationAssetId: string | null;
-}
+type LiveTurn = PlayableTurn;
 
 interface ScenePlayerProps {
   scriptId: string;
   scene: Scene;
   characters: Character[];
+  // Bumped by the Scene Workspace's own "Simulate Branch Impact" toolbar
+  // button so a run can be kicked off from outside this panel (e.g. the
+  // moment it's first revealed) without duplicating runSimulation's logic
+  // up there. The initial value never triggers a run on mount — only a
+  // change away from it does.
+  runSignal?: number;
 }
 
-export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
+export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePlayerProps) {
   const router = useRouter();
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  // True for the window after the transcript finishes but before the run is
+  // fully "done" — the server is still running the audience panel (several
+  // more LLM calls) against the completed transcript. Distinct from
+  // isRunning so the UI can say why it's still waiting instead of looking
+  // stalled the way an unexplained slow request always does.
+  const [isReviewing, setIsReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Keep the latest line in view as it streams in, rather than the
-  // transcript column growing and pushing the stage around.
+  // Turns arrive from the server as fast as the LLM responds — this paces
+  // them out at speech speed (voiced where possible) instead of revealing
+  // each line the instant it's generated. isLive keeps it waiting for more
+  // rather than stopping once it catches up to what's arrived so far.
+  const { currentIndex, currentTurn, isWaitingForMore } = useTurnPlayback({
+    turns,
+    isLive: isRunning,
+    autoPlay: true,
+  });
+  const revealedTurns = turns.slice(0, currentIndex + 1);
+
+  // Keep the latest *revealed* (spoken) line in view, not the latest one to
+  // have arrived from the server — those can race ahead of playback.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [turns]);
+  }, [currentIndex]);
 
   async function runSimulation() {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setTurns([]);
     setError(null);
     setIsRunning(true);
+    setIsReviewing(false);
 
     try {
       const response = await fetch(`/api/scripts/${scriptId}/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneId: scene.id }),
+        signal: controller.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -84,12 +108,16 @@ export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
           const parsed = JSON.parse(line) as
             | { characterId: string; text: string; turnIndex: number; action: string; animationAssetId: string | null }
             | { done: true; runId: string }
+            | { status: "reviewing" }
             | { error: string };
 
           if ("error" in parsed) {
             setError(parsed.error);
           } else if ("done" in parsed) {
+            setIsReviewing(false);
             router.refresh();
+          } else if ("status" in parsed) {
+            if (parsed.status === "reviewing") setIsReviewing(true);
           } else {
             setTurns((prev) => [
               ...prev,
@@ -104,13 +132,37 @@ export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Stopped on purpose. The route saves whatever transcript had
+        // already been generated before it noticed the disconnect, so a
+        // refresh (after giving it a moment to finish that save) picks up
+        // a partial run instead of losing it.
+        setTimeout(() => router.refresh(), 500);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
     } finally {
       setIsRunning(false);
+      setIsReviewing(false);
+      abortControllerRef.current = null;
     }
   }
 
-  const latestTurn = turns[turns.length - 1] ?? null;
+  function stopSimulation() {
+    abortControllerRef.current?.abort();
+  }
+
+  // The Scene Workspace's own toolbar button bumps runSignal to ask for a
+  // run from outside this panel. The ref (not a plain "did we run yet"
+  // boolean) is what keeps the very first render — runSignal already at
+  // its initial value — from triggering a run on mount.
+  const lastRunSignalRef = useRef(runSignal);
+  useEffect(() => {
+    if (runSignal === undefined || runSignal === lastRunSignalRef.current) return;
+    lastRunSignalRef.current = runSignal;
+    void runSimulation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runSimulation closes over state that changes every render; re-running this effect on those would defeat the "only on an explicit new signal" point of it.
+  }, [runSignal]);
 
   if (characters.length === 0) {
     return (
@@ -124,7 +176,13 @@ export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
     <div className="flex flex-col gap-3 rounded-lg border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          {isRunning ? "Simulating…" : turns.length > 0 ? "Last simulation" : "Scene preview"}
+          {isReviewing
+            ? "Gathering audience reactions…"
+            : isRunning
+              ? "Simulating…"
+              : turns.length > 0
+                ? "Last simulation"
+                : "Scene preview"}
         </p>
         <Button
           size="sm"
@@ -142,8 +200,8 @@ export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
         <SimulationStage
           scene={scene}
           characters={characters}
-          speakingCharacterId={latestTurn?.characterId ?? null}
-          animationAssetId={latestTurn?.animationAssetId}
+          speakingCharacterId={currentTurn?.characterId ?? null}
+          animationAssetId={currentTurn?.animationAssetId}
           className="bg-muted/40 h-80 overflow-hidden rounded-md"
         />
 
@@ -155,13 +213,19 @@ export function ScenePlayer({ scriptId, scene, characters }: ScenePlayerProps) {
             </p>
           ) : (
             <div className="p-2">
-              <TranscriptView turns={turns} characters={characters} />
+              <TranscriptView turns={revealedTurns} characters={characters} />
             </div>
           )}
-          {isRunning && (
+          {(isRunning || isWaitingForMore) && !isReviewing && (
             <p className="text-muted-foreground flex items-center gap-2 p-3 text-xs italic">
               <Loader2 className="size-3 animate-spin" />
               generating...
+            </p>
+          )}
+          {isReviewing && (
+            <p className="text-muted-foreground flex items-center gap-2 p-3 text-xs italic">
+              <Loader2 className="size-3 animate-spin" />
+              the scene finished — running it past a panel of audience reactions...
             </p>
           )}
         </div>

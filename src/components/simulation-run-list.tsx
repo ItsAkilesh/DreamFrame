@@ -8,8 +8,9 @@
 "use client";
 
 import { useState } from "react";
-import { Box, History, MessageSquare } from "lucide-react";
+import { Box, History, MessageSquare, Users } from "lucide-react";
 
+import { AudienceReviewSection } from "@/components/audience-review-section";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +31,7 @@ interface SimulationRunListProps {
 
 export function SimulationRunList({ scene, runs, characters }: SimulationRunListProps) {
   const [openRunId, setOpenRunId] = useState<string | null>(null);
-  const [view, setView] = useState<"transcript" | "3d">("transcript");
+  const [view, setView] = useState<"transcript" | "3d" | "audience">("transcript");
   const openRun = runs.find((r) => r.id === openRunId) ?? null;
 
   if (runs.length === 0) {
@@ -83,6 +84,15 @@ export function SimulationRunList({ scene, runs, characters }: SimulationRunList
                   <Box className="size-4" />
                   Watch in 3D
                 </Button>
+                <Button
+                  size="sm"
+                  variant={view === "audience" ? "default" : "outline"}
+                  className="gap-1.5"
+                  onClick={() => setView("audience")}
+                >
+                  <Users className="size-4" />
+                  Audience Review
+                </Button>
               </div>
               {openRun?.id === run.id && view === "transcript" && (
                 <div className="themed-scrollbar max-h-96 overflow-y-auto pr-1">
@@ -91,6 +101,11 @@ export function SimulationRunList({ scene, runs, characters }: SimulationRunList
               )}
               {openRun?.id === run.id && view === "3d" && (
                 <SimulationPlayer scene={scene} characters={characters} run={openRun} />
+              )}
+              {openRun?.id === run.id && view === "audience" && (
+                <div className="themed-scrollbar max-h-96 overflow-y-auto pr-1">
+                  <AudienceReviewSection review={openRun.audienceReview} />
+                </div>
               )}
             </DialogContent>
           </Dialog>

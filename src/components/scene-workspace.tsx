@@ -1,9 +1,11 @@
 // scene-workspace.tsx
 // Purpose: Center panel — selected scene's text, character roster, and the
 //          simulation actions available on it. Scene title, tone, text, and
-//          cast are editable, correcting the AI structuring pass. Motivation
-//          Stress Test / Chemistry Simulator remain disabled placeholders;
-//          Simulate Branch Impact runs the real turn-by-turn agent engine.
+//          cast are editable, correcting the AI structuring pass. All three
+//          simulation actions are real: Simulate Branch Impact reveals the
+//          live turn-by-turn ScenePlayer, Motivation Stress Test and
+//          Chemistry Simulator each run a focused one-shot AI probe in
+//          their own dialog.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
@@ -11,10 +13,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clapperboard, LucideIcon, Sparkles, Users } from "lucide-react";
+import { Clapperboard, GitBranch } from "lucide-react";
 
+import { AudiencePersonasDialog } from "@/components/audience-personas-dialog";
 import { CharacterEditDialog } from "@/components/character-edit-dialog";
+import { ChemistrySimulatorDialog } from "@/components/chemistry-simulator-dialog";
 import { EditableField } from "@/components/editable-field";
+import { MotivationStressTestDialog } from "@/components/motivation-stress-test-dialog";
 import { SceneCharactersDialog } from "@/components/scene-characters-dialog";
 import { SceneModelUpload } from "@/components/scene-model-upload";
 import { ScenePlayer } from "@/components/scene-player";
@@ -23,41 +28,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { patchScript } from "@/lib/scripts/patch-client";
-import type { Character, Scene, SimulationRun } from "@/lib/types";
+import type { AudiencePersona, Character, Scene, SimulationRun } from "@/lib/types";
 
 interface SceneWorkspaceProps {
   scriptId: string;
   scene: Scene;
   characters: Character[];
   simulationRuns: SimulationRun[];
-}
-
-function DisabledAction({
-  icon: Icon,
-  label,
-}: {
-  icon: LucideIcon;
-  label: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button variant="outline" size="sm" disabled className="gap-2">
-            <Icon className="size-4" />
-            {label}
-          </Button>
-        }
-      />
-      <TooltipContent>Not wired up yet — simulation engine is next.</TooltipContent>
-    </Tooltip>
-  );
+  audiencePersonas: AudiencePersona[];
 }
 
 export function SceneWorkspace({
@@ -65,13 +44,22 @@ export function SceneWorkspace({
   scene,
   characters,
   simulationRuns,
+  audiencePersonas,
 }: SceneWorkspaceProps) {
   const router = useRouter();
   const [showScene, setShowScene] = useState(false);
+  // Bumped to ask the (already-revealed) ScenePlayer to start a run — see
+  // its own prop doc for why a counter rather than a boolean.
+  const [runSignal, setRunSignal] = useState(0);
   const sceneCharacters = characters.filter((character) =>
     scene.characterIds.includes(character.id)
   );
   const sceneRuns = simulationRuns.filter((run) => run.sceneId === scene.id);
+
+  function handleSimulateBranchImpact() {
+    setShowScene(true);
+    setRunSignal((n) => n + 1);
+  }
 
   async function saveTitle(next: string) {
     await patchScript(scriptId, { type: "scene", id: scene.id, title: next });
@@ -91,7 +79,12 @@ export function SceneWorkspace({
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {showScene && (
-        <ScenePlayer scriptId={scriptId} scene={scene} characters={sceneCharacters} />
+        <ScenePlayer
+          scriptId={scriptId}
+          scene={scene}
+          characters={sceneCharacters}
+          runSignal={runSignal}
+        />
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -104,8 +97,19 @@ export function SceneWorkspace({
           <Clapperboard className="size-4" />
           Show Scene
         </Button>
-        <DisabledAction icon={Sparkles} label="Motivation Stress Test" />
-        <DisabledAction icon={Users} label="Chemistry Simulator" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={sceneCharacters.length === 0}
+          onClick={handleSimulateBranchImpact}
+        >
+          <GitBranch className="size-4" />
+          Simulate Branch Impact
+        </Button>
+        <MotivationStressTestDialog scriptId={scriptId} scene={scene} characters={sceneCharacters} />
+        <ChemistrySimulatorDialog scriptId={scriptId} scene={scene} characters={sceneCharacters} />
+        <AudiencePersonasDialog scriptId={scriptId} customPersonas={audiencePersonas} />
       </div>
 
       <Card className="flex-1">

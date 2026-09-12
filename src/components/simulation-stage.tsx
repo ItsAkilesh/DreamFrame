@@ -26,6 +26,7 @@ import { characterModelFormatFromFileName } from "@/lib/character-model-formats"
 import { cn } from "@/lib/utils";
 import type { Character, Scene } from "@/lib/types";
 import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
+import { constrainToLayout, rectangularLayout, type SceneLayout } from "@/render/sceneLayout";
 import { useIdleAnimationAssetId } from "@/render/useIdleAnimationAsset";
 
 const CharacterFigure = dynamic(
@@ -62,19 +63,22 @@ export function SimulationStage({
   className,
 }: SimulationStageProps) {
   const [footprint, setFootprint] = useState<RoomFootprint>(DEFAULT_FOOTPRINT);
+  const [layout, setLayout] = useState<SceneLayout>(() => rectangularLayout(DEFAULT_FOOTPRINT));
   const idleAssetId = useIdleAnimationAssetId();
   const radius = circleRadiusFor(footprint);
 
   const cast = useMemo(() => {
     const n = characters.length;
     return characters.map((character, i) => {
+      const mark = layout.spawnPoints?.[i % layout.spawnPoints.length];
       const angle = (i / n) * Math.PI * 2;
-      const x = Math.sin(angle) * radius;
-      const z = Math.cos(angle) * radius;
+      const x = mark?.[0] ?? Math.sin(angle) * radius;
+      const z = mark?.[1] ?? Math.cos(angle) * radius;
       const rotationY = Math.atan2(-x, -z);
-      return { character, position: [x, 0, z] as [number, number, number], rotationY };
+      const [boundedX, boundedZ] = constrainToLayout(layout, x, z);
+      return { character, position: [boundedX, 0, boundedZ] as [number, number, number], rotationY };
     });
-  }, [characters, radius]);
+  }, [characters, radius, layout]);
 
   return (
     <div className={cn("relative", className)}>
@@ -87,6 +91,7 @@ export function SimulationStage({
             format={scene.modelAsset.format}
             fallback={<Ground />}
             onMeasured={setFootprint}
+            onLayout={setLayout}
           />
         ) : (
           <Ground />

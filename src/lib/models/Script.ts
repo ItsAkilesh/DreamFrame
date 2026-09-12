@@ -92,10 +92,46 @@ const SimulationTurnSchema = new Schema(
   { _id: false }
 );
 
+// A script-specific critical lens on top of the always-active defaults
+// (DEFAULT_AUDIENCE_PERSONAS, src/lib/ai/audienceReview.ts) — those live in
+// code, not the database, so only custom additions are stored here.
+const AudiencePersonaSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+  },
+  { _id: true }
+);
+
+// personaId is a plain string, not an ObjectId ref, because it may point at
+// either a custom persona's real _id or one of the hardcoded default
+// personas' fixed string ids (e.g. "general") — there is no single
+// collection both live in.
+const AudienceCritiqueSchema = new Schema(
+  {
+    personaId: { type: String, required: true },
+    personaName: { type: String, required: true },
+    critique: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const AudienceReviewSchema = new Schema(
+  {
+    critiques: { type: [AudienceCritiqueSchema], default: [] },
+    summary: { type: String, required: true },
+    recommendations: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const SimulationRunSchema = new Schema(
   {
     sceneId: { type: Schema.Types.ObjectId, required: true },
     transcript: { type: [SimulationTurnSchema], default: [] },
+    // Null until the post-simulation audience panel finishes — see
+    // src/lib/ai/audienceReview.ts and the simulate route.
+    audienceReview: { type: AudienceReviewSchema, default: null },
   },
   { _id: true, timestamps: true }
 );
@@ -108,6 +144,7 @@ const ScriptSchema = new Schema(
     scenes: { type: [SceneSchema], default: [] },
     characters: { type: [CharacterSchema], default: [] },
     simulationRuns: { type: [SimulationRunSchema], default: [] },
+    audiencePersonas: { type: [AudiencePersonaSchema], default: [] },
   },
   { timestamps: true }
 );

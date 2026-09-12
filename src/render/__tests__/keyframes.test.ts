@@ -42,6 +42,14 @@ describe("sampleKeyframeTrack", () => {
     expect(sampleKeyframeTrack(track, 3).position[0]).toBeCloseTo(2, 6);
   });
 
+  it("eases into a move instead of snapping to full speed", () => {
+    const track = [
+      { id: "a", characterId: "ch", time: 0, position: [0, 0, 0] as [number, number, number], rotationY: 0 },
+      { id: "b", characterId: "ch", time: 4, position: [4, 0, 0] as [number, number, number], rotationY: 0 },
+    ];
+    expect(sampleKeyframeTrack(track, 1).position[0]).toBeCloseTo(0.625);
+  });
+
   it("turns the short way round across the ±π seam", () => {
     const track = [kf("a", 0, 0, Math.PI - 0.1), kf("b", 1, 0, -Math.PI + 0.1)];
     // The short path is +0.2rad through π, not -6.08rad back through zero.

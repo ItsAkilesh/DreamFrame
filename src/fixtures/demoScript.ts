@@ -50,6 +50,7 @@ export const DEMO_SCRIPT: ScriptData = {
   acts: ACTS,
   characters: CHARACTERS,
   simulationRuns: [],
+  audiencePersonas: [],
   scenes: [
     {
       id: "demo-scene-office",

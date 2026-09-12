@@ -40,7 +40,8 @@ export function resolvePose(spec: PrevisSpec, characterId: string, time: number)
     if (!cue) continue;
 
     const beatEnd = beat.startTime + beat.duration;
-    const t = Math.min(1, Math.max(0, (time - beat.startTime) / beat.duration));
+    const linearT = Math.min(1, Math.max(0, (time - beat.startTime) / beat.duration));
+    const t = linearT * linearT * (3 - 2 * linearT);
 
     if (cue.action === "walk" && cue.to) {
       const to = cue.to;

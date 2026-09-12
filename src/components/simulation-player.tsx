@@ -2,26 +2,20 @@
 // Purpose: Steps through a saved simulation run's turns with playback
 //          controls, driving the shared SimulationStage 3D view — see its
 //          header for what that renders and why it's shared with the live
-//          simulation-dialog.tsx.
+//          simulation-dialog.tsx. Pacing and per-turn voice audio are owned
+//          by useTurnPlayback (src/lib/use-turn-playback.ts), shared with
+//          the live view in scene-player.tsx.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SimulationStage } from "@/components/simulation-stage";
+import { useTurnPlayback } from "@/lib/use-turn-playback";
 import type { Character, Scene, SimulationRun } from "@/lib/types";
-
-const MIN_TURN_SECONDS = 2;
-const MAX_TURN_SECONDS = 8;
-
-function turnDurationSeconds(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.min(MAX_TURN_SECONDS, Math.max(MIN_TURN_SECONDS, (words / 150) * 60 + 1));
-}
 
 interface SimulationPlayerProps {
   scene: Scene;
@@ -30,31 +24,14 @@ interface SimulationPlayerProps {
 }
 
 export function SimulationPlayer({ scene, characters, run }: SimulationPlayerProps) {
-  const [turnIndex, setTurnIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const turns = run.transcript;
-  const currentTurn = turns[turnIndex];
+  const { currentIndex, currentTurn, isPlaying, setIsPlaying, goTo } = useTurnPlayback({
+    turns,
+    isLive: false,
+    autoPlay: false,
+  });
 
-  useEffect(() => {
-    if (!isPlaying || !currentTurn) return;
-    advanceTimer.current = setTimeout(() => {
-      setTurnIndex((i) => {
-        if (i + 1 >= turns.length) {
-          setIsPlaying(false);
-          return i;
-        }
-        return i + 1;
-      });
-    }, turnDurationSeconds(currentTurn.text) * 1000);
-
-    return () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    };
-  }, [isPlaying, turnIndex, currentTurn, turns.length]);
-
-  if (turns.length === 0) {
+  if (turns.length === 0 || !currentTurn) {
     return (
       <div className="text-muted-foreground flex h-72 items-center justify-center rounded-lg border text-sm">
         This run has no turns to play back.
@@ -93,8 +70,8 @@ export function SimulationPlayer({ scene, characters, run }: SimulationPlayerPro
             size="icon-sm"
             variant="outline"
             aria-label="Previous turn"
-            disabled={turnIndex === 0}
-            onClick={() => setTurnIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0}
+            onClick={() => goTo(currentIndex - 1)}
           >
             <SkipBack />
           </Button>
@@ -102,7 +79,7 @@ export function SimulationPlayer({ scene, characters, run }: SimulationPlayerPro
             size="icon-sm"
             variant="outline"
             aria-label={isPlaying ? "Pause" : "Play"}
-            onClick={() => setIsPlaying((v) => !v)}
+            onClick={() => setIsPlaying(!isPlaying)}
           >
             {isPlaying ? <Pause /> : <Play />}
           </Button>
@@ -110,13 +87,13 @@ export function SimulationPlayer({ scene, characters, run }: SimulationPlayerPro
             size="icon-sm"
             variant="outline"
             aria-label="Next turn"
-            disabled={turnIndex + 1 >= turns.length}
-            onClick={() => setTurnIndex((i) => Math.min(turns.length - 1, i + 1))}
+            disabled={currentIndex + 1 >= turns.length}
+            onClick={() => goTo(currentIndex + 1)}
           >
             <SkipForward />
           </Button>
           <span className="text-muted-foreground ml-2 text-xs">
-            Turn {turnIndex + 1} / {turns.length}
+            Turn {currentIndex + 1} / {turns.length}
           </span>
         </div>
       </div>

@@ -60,7 +60,11 @@ export function sampleKeyframeTrack(track: Keyframe[], time: number): Pose {
   }
 
   const span = next.time - prev.time;
-  const t = span <= 0 ? 0 : (time - prev.time) / span;
+  const linearT = span <= 0 ? 0 : (time - prev.time) / span;
+  // Ease into and out of marks so bodies do not start and stop with infinite
+  // acceleration. Midpoint timing is preserved while quarter points become
+  // a much more human 15.6% / 84.4% progression.
+  const t = linearT * linearT * (3 - 2 * linearT);
 
   return {
     position: [

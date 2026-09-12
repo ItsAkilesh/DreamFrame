@@ -138,6 +138,22 @@ async function labelOnce(page, openai, referenceFileName, fileName) {
   return labelFromFrames(openai, frames);
 }
 
+function isConnectionDownError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("ERR_CONNECTION_REFUSED") || message.includes("ERR_CONNECTION_RESET");
+}
+
+// A dev server shared with someone actively editing files can go down for a
+// stretch (mid hot-reload, or crashed and restarting) rather than just being
+// briefly slow — retrying immediately against a server that's still down
+// wastes the retry instead of using it. Waiting here for the server to
+// actually respond again means the retry in labelOne lands on a live
+// server instead of an instantly-failing one.
+async function waitForServerRecovery() {
+  console.log("[label-animations] server connection refused — waiting for it to come back...");
+  await waitForServerReady(`http://localhost:${PORT}/animation-label-render`, 120_000).catch(() => {});
+}
+
 // A shared dev server under load (HMR rebuilds from someone else's edits,
 // N concurrent tabs all hitting it) times out some fraction of requests for
 // reasons that have nothing to do with the file being labeled — a single
@@ -146,7 +162,8 @@ async function labelOnce(page, openai, referenceFileName, fileName) {
 async function labelOne(page, openai, referenceFileName, fileName) {
   try {
     return await labelOnce(page, openai, referenceFileName, fileName);
-  } catch {
+  } catch (err) {
+    if (isConnectionDownError(err)) await waitForServerRecovery();
     return labelOnce(page, openai, referenceFileName, fileName);
   }
 }

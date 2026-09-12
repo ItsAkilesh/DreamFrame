@@ -21,7 +21,15 @@
 import { Component, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useFBX, useGLTF } from "@react-three/drei";
-import { AnimationMixer, Box3, Group, Vector3, type AnimationClip, type Object3D } from "three";
+import {
+  AnimationAction,
+  AnimationMixer,
+  Box3,
+  Group,
+  Vector3,
+  type AnimationClip,
+  type Object3D,
+} from "three";
 
 import { isPreviewableCharacterModelFormat } from "@/lib/character-model-formats";
 import { prepareMixamoClipForCharacter, resetCharacterPose } from "@/lib/animation-retarget";
@@ -47,11 +55,23 @@ interface CharacterFigureProps {
   rotationY: number;
   color: string;
   highlighted: boolean;
+  animationSpeed?: number;
 }
 
-function NormalizedCharacterModel({ object, clip }: { object: Object3D; clip: AnimationClip | null }) {
+const CROSS_FADE_SECONDS = 0.32;
+
+function NormalizedCharacterModel({
+  object,
+  clip,
+  animationSpeed,
+}: {
+  object: Object3D;
+  clip: AnimationClip | null;
+  animationSpeed: number;
+}) {
   const [group] = useState(() => new Group());
   const mixerRef = useRef<AnimationMixer | null>(null);
+  const actionRef = useRef<AnimationAction | null>(null);
 
   useEffect(() => {
     group.add(object);
@@ -70,29 +90,48 @@ function NormalizedCharacterModel({ object, clip }: { object: Object3D; clip: An
     object.position.z -= center.z;
     object.position.y -= box.min.y;
 
+    resetCharacterPose(object);
+    const mixer = new AnimationMixer(object);
+    mixerRef.current = mixer;
+
     return () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(object);
+      actionRef.current = null;
+      mixerRef.current = null;
       group.remove(object);
     };
   }, [object, group]);
 
   useEffect(() => {
-    resetCharacterPose(object);
-    if (!clip) return;
+    const mixer = mixerRef.current;
+    if (!mixer) return;
+
+    const previous = actionRef.current;
+    if (!clip) {
+      previous?.fadeOut(CROSS_FADE_SECONDS);
+      actionRef.current = null;
+      return;
+    }
 
     try {
       const prepared = prepareMixamoClipForCharacter(object, clip);
-      const mixer = new AnimationMixer(object);
-      mixerRef.current = mixer;
-      mixer.clipAction(prepared).play();
+      const next = mixer.clipAction(prepared);
+      next.reset().setEffectiveTimeScale(animationSpeed).setEffectiveWeight(1).play();
+      if (previous && previous !== next) previous.crossFadeTo(next, CROSS_FADE_SECONDS, true);
+      else next.fadeIn(CROSS_FADE_SECONDS);
+      actionRef.current = next;
     } catch (error) {
       console.warn("Stage: could not play this animation on this character", error);
     }
-
-    return () => {
-      mixerRef.current?.stopAllAction();
-      mixerRef.current = null;
-    };
+    // Cadence changes are applied by the small effect below; they must not
+    // restart/crossfade the same clip as movement speed changes every frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [object, clip]);
+
+  useEffect(() => {
+    actionRef.current?.setEffectiveTimeScale(animationSpeed);
+  }, [animationSpeed]);
 
   useFrame((_state, delta) => {
     mixerRef.current?.update(delta);
@@ -115,37 +154,41 @@ function FbxAnimationClip({
 function GltfCharacter({
   url,
   animationAsset,
+  animationSpeed,
 }: {
   url: string;
   animationAsset?: StageCharacterModelAsset | null;
+  animationSpeed: number;
 }) {
   const { scene } = useGLTF(url);
   if (animationAsset?.format === "fbx") {
     return (
       <FbxAnimationClip url={animationAsset.url}>
-        {(clip) => <NormalizedCharacterModel object={scene} clip={clip} />}
+        {(clip) => <NormalizedCharacterModel object={scene} clip={clip} animationSpeed={animationSpeed} />}
       </FbxAnimationClip>
     );
   }
-  return <NormalizedCharacterModel object={scene} clip={null} />;
+  return <NormalizedCharacterModel object={scene} clip={null} animationSpeed={animationSpeed} />;
 }
 
 function FbxCharacter({
   url,
   animationAsset,
+  animationSpeed,
 }: {
   url: string;
   animationAsset?: StageCharacterModelAsset | null;
+  animationSpeed: number;
 }) {
   const fbx = useFBX(url);
   if (animationAsset?.format === "fbx") {
     return (
       <FbxAnimationClip url={animationAsset.url}>
-        {(clip) => <NormalizedCharacterModel object={fbx} clip={clip} />}
+        {(clip) => <NormalizedCharacterModel object={fbx} clip={clip} animationSpeed={animationSpeed} />}
       </FbxAnimationClip>
     );
   }
-  return <NormalizedCharacterModel object={fbx} clip={null} />;
+  return <NormalizedCharacterModel object={fbx} clip={null} animationSpeed={animationSpeed} />;
 }
 
 interface BoundaryProps {
@@ -190,6 +233,7 @@ export function CharacterFigure({
   rotationY,
   color,
   highlighted,
+  animationSpeed = 1,
 }: CharacterFigureProps) {
   const canRenderModel = modelAsset != null && isPreviewableCharacterModelFormat(modelAsset.format);
   const fallback = <CapsuleBody color={color} />;
@@ -200,9 +244,9 @@ export function CharacterFigure({
         <ModelErrorBoundary fallback={fallback}>
           <Suspense fallback={fallback}>
             {modelAsset.format === "fbx" ? (
-              <FbxCharacter url={modelAsset.url} animationAsset={animationAsset} />
+              <FbxCharacter url={modelAsset.url} animationAsset={animationAsset} animationSpeed={animationSpeed} />
             ) : (
-              <GltfCharacter url={modelAsset.url} animationAsset={animationAsset} />
+              <GltfCharacter url={modelAsset.url} animationAsset={animationAsset} animationSpeed={animationSpeed} />
             )}
           </Suspense>
         </ModelErrorBoundary>

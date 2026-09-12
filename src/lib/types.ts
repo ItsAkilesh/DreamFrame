@@ -101,11 +101,41 @@ export interface SimulationTurn {
   animationAssetId: string | null;
 }
 
+// A distinct critical lens a simulated performance is judged from — e.g. a
+// mainstream viewer vs. a festival critic. The defaults (DEFAULT_AUDIENCE_
+// PERSONAS, src/lib/ai/audienceReview.ts) are hardcoded and always active;
+// AudiencePersona here only describes a script's own *custom* additions.
+export interface AudiencePersona {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface AudienceCritique {
+  personaId: string;
+  personaName: string;
+  critique: string;
+}
+
+// The result of running every active persona's critique through a moderator
+// pass that reconciles disagreement into one usable review — see
+// src/lib/ai/audienceReview.ts. Attached per SimulationRun (not the scene),
+// so a scene's simulation history keeps each run's own review rather than
+// one field that only ever reflects the latest.
+export interface AudienceReview {
+  critiques: AudienceCritique[];
+  summary: string;
+  recommendations: string[];
+}
+
 export interface SimulationRun {
   id: string;
   sceneId: string;
   transcript: SimulationTurn[];
   createdAt: string;
+  // Null until the post-simulation audience panel finishes (or if it failed —
+  // the transcript itself is never blocked on this succeeding).
+  audienceReview: AudienceReview | null;
 }
 
 export interface ScriptData {
@@ -115,4 +145,7 @@ export interface ScriptData {
   scenes: Scene[];
   characters: Character[];
   simulationRuns: SimulationRun[];
+  // Custom audience personas this script's author has added, on top of the
+  // always-active defaults.
+  audiencePersonas: AudiencePersona[];
 }

@@ -12,11 +12,18 @@ import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { DEFAULT_AUDIENCE_PERSONAS, runAudiencePanel } from "@/lib/ai/audienceReview";
 import { judgeSimulation } from "@/lib/ai/judgeSimulation";
 import { simulateConversation } from "@/lib/ai/simulateConversation";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ScriptModel } from "@/lib/models/Script";
 import type { Character } from "@/lib/types";
+
+interface AudiencePersonaSubdoc {
+  _id: Types.ObjectId;
+  name: string;
+  description: string;
+}
 
 interface CharacterSubdoc {
   _id: Types.ObjectId;
@@ -115,6 +122,7 @@ export async function POST(
         }
 
         script.simulationRuns.push({ sceneId: scene._id, transcript });
+        const savedRun = script.simulationRuns[script.simulationRuns.length - 1];
 
         try {
           scene.metrics = await judgeSimulation({
@@ -128,9 +136,35 @@ export async function POST(
           console.error("Simulation judge failed:", judgeError);
         }
 
+        // The audience panel is several more sequential/parallel LLM calls
+        // on top of everything above — tell the client why "done" is taking
+        // longer, rather than let it look stalled the way an un-flagged slow
+        // request always does.
+        controller.enqueue(encoder.encode(JSON.stringify({ status: "reviewing" }) + "\n"));
+
+        try {
+          const personas = [
+            ...DEFAULT_AUDIENCE_PERSONAS,
+            ...script.audiencePersonas.map((p: AudiencePersonaSubdoc) => ({
+              id: p._id.toString(),
+              name: p.name,
+              description: p.description,
+            })),
+          ];
+          savedRun.audienceReview = await runAudiencePanel({
+            scene: { title: scene.title, text: scene.text, toneTarget: scene.toneTarget },
+            characters,
+            transcript,
+            personas,
+          });
+        } catch (reviewError) {
+          // Same reasoning as the judge above: the transcript and any
+          // metrics it already has are still worth keeping.
+          console.error("Audience review failed:", reviewError);
+        }
+
         await script.save();
 
-        const savedRun = script.simulationRuns[script.simulationRuns.length - 1];
         controller.enqueue(
           encoder.encode(JSON.stringify({ done: true, runId: savedRun._id.toString() }) + "\n")
         );

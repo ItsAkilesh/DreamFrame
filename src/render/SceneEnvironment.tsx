@@ -21,6 +21,11 @@ import { useFBX, useGLTF } from "@react-three/drei";
 import { Box3, Group, Vector3, type Object3D } from "three";
 
 import type { RoomFootprint } from "@/render/roomFit";
+import {
+  rectangularLayout,
+  sceneCalibrationFor,
+  type SceneLayout,
+} from "@/render/sceneLayout";
 
 export type { RoomFootprint } from "@/render/roomFit";
 
@@ -29,6 +34,7 @@ interface SceneEnvironmentProps {
   format: string;
   fallback: ReactNode;
   onMeasured?: (footprint: RoomFootprint) => void;
+  onLayout?: (layout: SceneLayout) => void;
 }
 
 // Most uploaded/library room models aren't authored in real-world metres —
@@ -38,7 +44,12 @@ interface SceneEnvironmentProps {
 // of trusting whatever raw units the source file used.
 const TARGET_MAX_FOOTPRINT = 8;
 
-function Centered({ object, onMeasured }: { object: Object3D; onMeasured?: (footprint: RoomFootprint) => void }) {
+function Centered({ object, url, onMeasured, onLayout }: {
+  object: Object3D;
+  url: string;
+  onMeasured?: (footprint: RoomFootprint) => void;
+  onLayout?: (layout: SceneLayout) => void;
+}) {
   const [group] = useState(() => new Group());
 
   useEffect(() => {
@@ -47,20 +58,24 @@ function Centered({ object, onMeasured }: { object: Object3D; onMeasured?: (foot
     object.scale.set(1, 1, 1);
     object.updateWorldMatrix(true, true);
 
-    const rawSize = new Box3().setFromObject(object).getSize(new Vector3());
+    const rawBox = new Box3().setFromObject(object);
+    const rawSize = rawBox.getSize(new Vector3());
+    const rawCenter = rawBox.getCenter(new Vector3());
+    const calibration = sceneCalibrationFor(url);
     const rawMaxFootprint = Math.max(rawSize.x, rawSize.z) || 1;
-    const scale = TARGET_MAX_FOOTPRINT / rawMaxFootprint;
+    const scale = calibration?.rawScale ?? TARGET_MAX_FOOTPRINT / rawMaxFootprint;
     object.scale.setScalar(scale);
+    object.position.set(
+      -rawCenter.x * scale,
+      -(calibration?.rawFloorY ?? rawBox.min.y) * scale,
+      -rawCenter.z * scale
+    );
     object.updateWorldMatrix(true, true);
 
-    const box = new Box3().setFromObject(object);
-    const size = box.getSize(new Vector3());
-    const center = box.getCenter(new Vector3());
-    object.position.x -= center.x;
-    object.position.z -= center.z;
-    object.position.y -= box.min.y;
-
-    onMeasured?.({ width: size.x, depth: size.z });
+    const footprint = calibration?.layout.footprint ?? { width: rawSize.x * scale, depth: rawSize.z * scale };
+    const layout = calibration?.layout ?? rectangularLayout(footprint);
+    onMeasured?.(footprint);
+    onLayout?.(layout);
 
     return () => {
       group.remove(object);
@@ -68,19 +83,27 @@ function Centered({ object, onMeasured }: { object: Object3D; onMeasured?: (foot
     // onMeasured is a fresh closure each render in every current caller —
     // only react to the object/group actually changing, not to that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [object, group]);
+  }, [object, group, url]);
 
   return <primitive object={group} />;
 }
 
-function GltfEnvironment({ url, onMeasured }: { url: string; onMeasured?: (footprint: RoomFootprint) => void }) {
+function GltfEnvironment({ url, onMeasured, onLayout }: {
+  url: string;
+  onMeasured?: (footprint: RoomFootprint) => void;
+  onLayout?: (layout: SceneLayout) => void;
+}) {
   const { scene } = useGLTF(url);
-  return <Centered object={scene} onMeasured={onMeasured} />;
+  return <Centered object={scene} url={url} onMeasured={onMeasured} onLayout={onLayout} />;
 }
 
-function FbxEnvironment({ url, onMeasured }: { url: string; onMeasured?: (footprint: RoomFootprint) => void }) {
+function FbxEnvironment({ url, onMeasured, onLayout }: {
+  url: string;
+  onMeasured?: (footprint: RoomFootprint) => void;
+  onLayout?: (layout: SceneLayout) => void;
+}) {
   const fbx = useFBX(url);
-  return <Centered object={fbx} onMeasured={onMeasured} />;
+  return <Centered object={fbx} url={url} onMeasured={onMeasured} onLayout={onLayout} />;
 }
 
 interface BoundaryProps {
@@ -107,14 +130,14 @@ class EnvironmentErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
-export function SceneEnvironment({ url, format, fallback, onMeasured }: SceneEnvironmentProps) {
+export function SceneEnvironment({ url, format, fallback, onMeasured, onLayout }: SceneEnvironmentProps) {
   return (
     <EnvironmentErrorBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
         {format === "fbx" ? (
-          <FbxEnvironment url={url} onMeasured={onMeasured} />
+          <FbxEnvironment url={url} onMeasured={onMeasured} onLayout={onLayout} />
         ) : (
-          <GltfEnvironment url={url} onMeasured={onMeasured} />
+          <GltfEnvironment url={url} onMeasured={onMeasured} onLayout={onLayout} />
         )}
       </Suspense>
     </EnvironmentErrorBoundary>

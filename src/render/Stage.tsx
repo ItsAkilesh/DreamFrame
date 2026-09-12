@@ -44,6 +44,11 @@ import { resolvePose } from "@/render/blocking";
 import type { Pose } from "@/render/keyframes";
 import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
 import { SceneEnvironment } from "@/render/SceneEnvironment";
+import {
+  constrainToLayout,
+  rectangularLayout,
+  type SceneLayout,
+} from "@/render/sceneLayout";
 import { useIdleAnimationAssetId } from "@/render/useIdleAnimationAsset";
 import { animationForCharacterAt } from "@/render/animationMap";
 import { useLabeledAnimations } from "@/render/useLabeledAnimations";
@@ -123,6 +128,8 @@ function StageCharacter({
   modelAsset,
   animationAsset,
   placementScale,
+  layout,
+  animationSpeed,
   highlighted,
   selected,
   onSelect,
@@ -134,6 +141,8 @@ function StageCharacter({
   modelAsset?: StageCharacterModelAsset | null;
   animationAsset?: StageCharacterModelAsset | null;
   placementScale: number;
+  layout: SceneLayout;
+  animationSpeed: number;
   highlighted: boolean;
   selected: boolean;
   onSelect?: (characterId: string) => void;
@@ -159,13 +168,29 @@ function StageCharacter({
   }
 
   const [x, , z] = pose.position;
-  const position: [number, number, number] = [x * placementScale, 0, z * placementScale];
+  const [boundedX, boundedZ] = constrainToLayout(layout, x * placementScale, z * placementScale);
+
+  // A moving person naturally faces their path. Sample just around the
+  // playhead so this also works with eased keyframes and inferred blocking.
+  const sampleWindow = 0.12;
+  let rotationY = pose.rotationY;
+  try {
+    const before = resolvePose(spec, character.id, Math.max(0, time - sampleWindow));
+    const after = resolvePose(spec, character.id, time + sampleWindow);
+    const dx = (after.position[0] - before.position[0]) * placementScale;
+    const dz = (after.position[2] - before.position[2]) * placementScale;
+    if (Math.hypot(dx, dz) > 0.015) rotationY = Math.atan2(dx, dz);
+  } catch {
+    // The resolved pose above remains authoritative on malformed partial data.
+  }
+
+  const position: [number, number, number] = [boundedX, 0, boundedZ];
 
   return (
     <group
       ref={groupRef}
       position={position}
-      rotation={[0, pose.rotationY, 0]}
+      rotation={[0, rotationY, 0]}
       onClick={(event) => {
         if (!onSelect) return;
         event.stopPropagation();
@@ -182,6 +207,7 @@ function StageCharacter({
         rotationY={0}
         color={character.color}
         highlighted={highlighted}
+        animationSpeed={animationSpeed}
       />
       {selected && (
         <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -269,6 +295,7 @@ export function Stage({
   const { w, d } = spec.set.dimensions;
   const [target, setTarget] = useState<Object3D | null>(null);
   const [footprint, setFootprint] = useState<RoomFootprint>(DEFAULT_FOOTPRINT);
+  const [layout, setLayout] = useState<SceneLayout>(() => rectangularLayout({ width: w, depth: d }));
   const idleAssetId = useIdleAnimationAssetId();
   const labeledAnimations = useLabeledAnimations();
 
@@ -297,6 +324,34 @@ export function Stage({
       : null;
 
   const idleAnimationAsset = libraryAnimationAsset(idleAssetId);
+  const walkingAnimation = useMemo(
+    () =>
+      labeledAnimations.find((asset) => /walking in place/i.test(asset.name)) ??
+      labeledAnimations.find((asset) => /walking forward|walk/i.test(asset.name)) ??
+      null,
+    [labeledAnimations]
+  );
+
+  const motionFor = (characterId: string) => {
+    const sampleWindow = 0.12;
+    try {
+      const before = resolvePose(spec, characterId, Math.max(0, time - sampleWindow));
+      const after = resolvePose(spec, characterId, time + sampleWindow);
+      const distance = Math.hypot(
+        (after.position[0] - before.position[0]) * placementScale,
+        (after.position[2] - before.position[2]) * placementScale
+      );
+      const speed = distance / (sampleWindow * 2);
+      return {
+        moving: speed > 0.08,
+        // Mixamo walks average roughly 1.25 m/s. Keep cadence within a human
+        // range even when authored marks are unusually close or far apart.
+        animationSpeed: Math.min(1.35, Math.max(0.72, speed / 1.25)),
+      };
+    } catch {
+      return { moving: false, animationSpeed: 1 };
+    }
+  };
 
   /**
    * The speaking character plays a clip chosen from their line's emotion
@@ -304,7 +359,8 @@ export function Stage({
    * holds the shared idle. Falls back to idle whenever the library has no
    * matching label, so an unlabeled library behaves exactly as before.
    */
-  const animationAssetFor = (characterId: string): StageCharacterModelAsset | null => {
+  const animationAssetFor = (characterId: string, moving: boolean): StageCharacterModelAsset | null => {
+    if (moving && walkingAnimation) return libraryAnimationAsset(walkingAnimation.id);
     const chosen = animationForCharacterAt(spec, characterId, time, labeledAnimations);
     return chosen ? libraryAnimationAsset(chosen.id) : idleAnimationAsset;
   };
@@ -317,8 +373,10 @@ export function Stage({
   // so baking it into the keyframe too would double it up.
   function commitPose() {
     if (!target || !selectedCharacterId || !onPoseCommit) return;
+    const [x, z] = constrainToLayout(layout, target.position.x, target.position.z);
+    target.position.set(x, 0, z);
     onPoseCommit(selectedCharacterId, {
-      position: [target.position.x / placementScale, 0, target.position.z / placementScale],
+      position: [x / placementScale, 0, z / placementScale],
       rotationY: target.rotation.y,
     });
   }
@@ -336,6 +394,7 @@ export function Stage({
           format={sceneModelAsset.format}
           fallback={<Room dimensions={spec.set.dimensions} />}
           onMeasured={setFootprint}
+          onLayout={setLayout}
         />
       ) : (
         <Room dimensions={spec.set.dimensions} />
@@ -343,21 +402,24 @@ export function Stage({
       {spec.set.props.map((prop) => (
         <Prop key={prop.id} prop={prop} />
       ))}
-      {spec.cast.map((character) => (
-        <StageCharacter
+      {spec.cast.map((character) => {
+        const motion = motionFor(character.id);
+        return <StageCharacter
           key={character.id}
           character={character}
           time={time}
           spec={spec}
           modelAsset={characterModels?.[character.id]}
-          animationAsset={animationAssetFor(character.id)}
+          animationAsset={animationAssetFor(character.id, motion.moving)}
+          animationSpeed={motion.animationSpeed}
           placementScale={placementScale}
+          layout={layout}
           highlighted={highlightedCharacterIds.includes(character.id)}
           selected={character.id === selectedCharacterId}
           onSelect={onSelectCharacter}
           onTarget={setTarget}
-        />
-      ))}
+        />;
+      })}
       {target && onPoseCommit && (
         <TransformControls
           object={target}
@@ -371,6 +433,11 @@ export function Stage({
           rotationSnap={Math.PI / 36}
           size={0.7}
           onMouseUp={commitPose}
+          onObjectChange={() => {
+            if (!target) return;
+            const [x, z] = constrainToLayout(layout, target.position.x, target.position.z);
+            target.position.set(x, 0, z);
+          }}
         />
       )}
       {/* makeDefault lets TransformControls suspend orbiting mid-drag. */}

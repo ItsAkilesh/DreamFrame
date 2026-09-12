@@ -175,8 +175,9 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               scene={selectedScene}
               characters={script.characters}
               simulationRuns={script.simulationRuns}
+              audiencePersonas={script.audiencePersonas}
             />
-            <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l">
+            <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l xl:w-[22rem] 2xl:w-96">
               <DashboardPanel
                 scene={selectedScene}
                 simulationRuns={script.simulationRuns}

@@ -20,9 +20,12 @@ export function useIdleAnimationAssetId(): string | null {
       .then((response) => (response.ok ? response.json() : null))
       .then((body) => {
         if (cancelled || !body?.assets) return;
-        const idle = (body.assets as { id: string; name: string }[]).find((a) =>
-          /idle/i.test(a.name)
-        );
+        const assets = body.assets as { id: string; name: string }[];
+        // A breathing cycle is a neutral standing loop. Generic "Idle Pose"
+        // exports often contain a stylized crouch/lean and made a room full
+        // of otherwise stationary actors look agitated.
+        const idle = assets.find((a) => /^idle breathing$/i.test(a.name)) ??
+          assets.find((a) => /idle/i.test(a.name));
         if (idle) setAssetId(idle.id);
       })
       .catch(() => {

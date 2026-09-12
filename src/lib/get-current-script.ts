@@ -9,6 +9,8 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { ScriptModel } from "@/lib/models/Script";
 import type {
   Act,
+  AudiencePersona,
+  AudienceReview,
   Character,
   DashboardMetrics,
   Scene,
@@ -66,7 +68,9 @@ type LeanScript = {
       action: string;
       animationAssetId: string | null;
     }[];
+    audienceReview?: AudienceReview | null;
   })[];
+  audiencePersonas?: (LeanId & { name: string; description: string })[];
 };
 
 function serialize(doc: LeanScript): ScriptData {
@@ -118,6 +122,13 @@ function serialize(doc: LeanScript): ScriptData {
       action: turn.action,
       animationAssetId: turn.animationAssetId,
     })),
+    audienceReview: run.audienceReview ?? null,
+  }));
+
+  const audiencePersonas: AudiencePersona[] = (doc.audiencePersonas ?? []).map((persona) => ({
+    id: persona._id.toString(),
+    name: persona.name,
+    description: persona.description,
   }));
 
   return {
@@ -127,6 +138,7 @@ function serialize(doc: LeanScript): ScriptData {
     characters,
     scenes,
     simulationRuns,
+    audiencePersonas,
   };
 }
 

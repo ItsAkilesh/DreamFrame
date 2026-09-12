@@ -10,6 +10,7 @@
 import { AlertTriangle } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
 
+import { AudienceReviewSection } from "@/components/audience-review-section";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +19,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Separator } from "@/components/ui/separator";
 import { computeSceneComposition, countTensionPeaks } from "@/lib/scene-composition";
 import type { Character, DashboardMetrics, Scene, SimulationRun } from "@/lib/types";
 
@@ -246,6 +248,13 @@ export function DashboardPanel({ scene, simulationRuns, characters }: DashboardP
           characters={characters}
           tensionCurve={metrics.tensionCurve}
         />
+      )}
+
+      {latestRun && (
+        <>
+          <Separator />
+          <AudienceReviewSection review={latestRun.audienceReview} />
+        </>
       )}
     </div>
   );
