@@ -73,7 +73,9 @@ export function SceneWorkspace({ scene, characters }: SceneWorkspaceProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm leading-relaxed">{scene.text}</p>
+          <div className="typeset typeset-docs max-w-[42em]">
+            <p>{scene.text}</p>
+          </div>
 
           <Separator />
 

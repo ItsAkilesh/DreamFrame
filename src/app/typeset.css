@@ -1,0 +1,41 @@
+/* typeset.css
+   Purpose: Long-form reading typography (scene text, prose content) layered
+   on top of the app's UI font tokens. The compact app chrome (sidebar,
+   buttons, dashboard cards) intentionally does not use this — it's for
+   content the user reads at length, not the surrounding interface.
+   Author: akilesh@vigilnz.com
+   Date: 2026-09-12 */
+
+.typeset {
+  font-family: var(--typeset-font-body, var(--font-sans));
+  font-size: var(--typeset-size, 16px);
+  line-height: var(--typeset-leading, 1.7);
+}
+
+.typeset > * + * {
+  margin-block-start: var(--typeset-flow, 1.5em);
+}
+
+.typeset h1,
+.typeset h2,
+.typeset h3,
+.typeset h4 {
+  font-family: var(--typeset-font-heading, var(--font-heading));
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.typeset code,
+.typeset pre,
+.typeset kbd {
+  font-family: var(--typeset-font-mono, var(--font-mono));
+}
+
+.typeset-docs {
+  --typeset-font-body: var(--font-oxanium);
+  --typeset-font-heading: var(--font-roboto);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 18px;
+  --typeset-leading: 1.9;
+  --typeset-flow: 2em;
+}
