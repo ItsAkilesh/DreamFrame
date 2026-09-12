@@ -118,6 +118,23 @@ export const BeatZ = z.object({
   shot: ShotZ,
 });
 
+// --- Keyframe (timeline-authored pose track) ---
+
+// A hand-placed pose for one character at one timestamp, set from the Editor
+// View's keyframe timeline (drag the character on stage, and the playhead's
+// time becomes the keyframe's time). A character with at least one keyframe is
+// driven entirely by its keyframe track; one with none still falls back to the
+// beat-derived blocking in render/blocking.ts. Optional with a [] default so
+// every spec written before keyframes existed — the fixtures, fromScene — keeps
+// parsing untouched.
+export const KeyframeZ = z.object({
+  id: z.string(),
+  characterId: z.string(),
+  time: z.number().min(0),
+  position: Vec3,
+  rotationY: z.number().default(0),
+});
+
 // --- Top level (§3.2) ---
 
 export const PrevisSpecZ = z.object({
@@ -131,6 +148,7 @@ export const PrevisSpecZ = z.object({
   // it) legitimately needs a couple more without being unbounded.
   cameras: z.array(CameraZ).min(1).max(8),
   beats: z.array(BeatZ).min(1).max(40),
+  keyframes: z.array(KeyframeZ).max(400).default([]),
 });
 
 export type PrevisSpec = z.infer<typeof PrevisSpecZ>;
@@ -144,6 +162,7 @@ export type Beat = z.infer<typeof BeatZ>;
 export type Line = z.infer<typeof LineZ>;
 export type BlockingCue = z.infer<typeof BlockingCueZ>;
 export type Shot = z.infer<typeof ShotZ>;
+export type Keyframe = z.infer<typeof KeyframeZ>;
 
 // --- Notes (§3.9, analyzer output — not part of the spec, shares the file) ---
 

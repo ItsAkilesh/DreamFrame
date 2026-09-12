@@ -2,23 +2,36 @@
 // Purpose: M0 placeholder previs stage — room, box props, capsule
 //          characters, three-point lighting, OrbitControls. All primitives;
 //          no GLB loading (that's M1). Must never throw on a partial spec.
+//
+//          Also the keyframe authoring surface: click a character to select
+//          it, drag its gizmo, and the Editor View writes the resulting pose
+//          as a keyframe at the playhead's timestamp.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
+import { useEffect, useRef, useState } from "react";
+import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { PCFShadowMap } from "three";
+import { PCFShadowMap, type Group, type Object3D } from "three";
 
 import { PROP_DIMENSIONS } from "@/assets/manifest";
 import { resolvePose } from "@/render/blocking";
+import type { Pose } from "@/render/keyframes";
 import type { PrevisSpec } from "@/schema/previsSpec";
+
+export type GizmoMode = "translate" | "rotate";
 
 interface StageProps {
   spec: PrevisSpec;
   time: number;
   highlightedCharacterIds?: string[];
+  selectedCharacterId?: string | null;
+  /** Omit to keep the stage read-only (no selection, no gizmo). */
+  onSelectCharacter?: (characterId: string | null) => void;
+  onPoseCommit?: (characterId: string, pose: Pose) => void;
+  gizmoMode?: GizmoMode;
 }
 
 function Room({ dimensions }: { dimensions: { w: number; d: number; h: number } }) {
@@ -69,15 +82,31 @@ function CharacterCapsule({
   time,
   spec,
   highlighted,
+  selected,
+  onSelect,
+  onTarget,
 }: {
   character: PrevisSpec["cast"][number];
   time: number;
   spec: PrevisSpec;
   highlighted: boolean;
+  selected: boolean;
+  onSelect?: (characterId: string) => void;
+  onTarget?: (object: Object3D | null) => void;
 }) {
   const radius = 0.25;
   const totalHeight = 1.75;
   const cylinderLength = totalHeight - radius * 2;
+  const groupRef = useRef<Group>(null);
+
+  // Hand the selected character's group up to the Stage so the single
+  // TransformControls can attach to it — the gizmo has to live outside the
+  // group it moves, or it would drag itself.
+  useEffect(() => {
+    if (!selected) return;
+    onTarget?.(groupRef.current);
+    return () => onTarget?.(null);
+  }, [selected, onTarget]);
 
   let pose;
   try {
@@ -90,15 +119,30 @@ function CharacterCapsule({
   const [x, , z] = pose.position;
 
   return (
-    <group>
-      <mesh position={[x, totalHeight / 2, z]} rotation={[0, pose.rotationY, 0]} castShadow>
+    <group
+      ref={groupRef}
+      position={[x, 0, z]}
+      rotation={[0, pose.rotationY, 0]}
+      onClick={(event) => {
+        if (!onSelect) return;
+        event.stopPropagation();
+        onSelect(character.id);
+      }}
+    >
+      <mesh position={[0, totalHeight / 2, 0]} castShadow>
         <capsuleGeometry args={[radius, cylinderLength, 4, 12]} />
         <meshLambertMaterial color={character.color} />
       </mesh>
-      {highlighted && (
-        <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Nose wedge — without it a capsule's facing, and so every keyframed
+          turn, is invisible. */}
+      <mesh position={[0, totalHeight * 0.78, radius * 0.9]} castShadow>
+        <coneGeometry args={[0.07, 0.16, 8]} />
+        <meshLambertMaterial color={character.color} />
+      </mesh>
+      {(highlighted || selected) && (
+        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[radius + 0.08, radius + 0.18, 32]} />
-          <meshBasicMaterial color="#ffd23f" />
+          <meshBasicMaterial color={selected ? "#22d3ee" : "#ffd23f"} />
         </mesh>
       )}
     </group>
@@ -167,14 +211,35 @@ function ThreePointLights({ lights }: { lights: PrevisSpec["set"]["lights"] }) {
   );
 }
 
-export function Stage({ spec, time, highlightedCharacterIds = [] }: StageProps) {
+export function Stage({
+  spec,
+  time,
+  highlightedCharacterIds = [],
+  selectedCharacterId = null,
+  onSelectCharacter,
+  onPoseCommit,
+  gizmoMode = "translate",
+}: StageProps) {
   const { w, d } = spec.set.dimensions;
   const camDistance = Math.max(w, d) * 1.3;
+  const [target, setTarget] = useState<Object3D | null>(null);
+
+  // Read the pose straight off the dragged group: the gizmo mutates the
+  // object directly, so this is the only place the new pose exists until it
+  // becomes a keyframe.
+  function commitPose() {
+    if (!target || !selectedCharacterId || !onPoseCommit) return;
+    onPoseCommit(selectedCharacterId, {
+      position: [target.position.x, 0, target.position.z],
+      rotationY: target.rotation.y,
+    });
+  }
 
   return (
     <Canvas
       shadows={{ type: PCFShadowMap }}
       camera={{ position: [0, camDistance * 0.5, camDistance], fov: 50 }}
+      onPointerMissed={() => onSelectCharacter?.(null)}
     >
       <ThreePointLights lights={spec.set.lights} />
       <Room dimensions={spec.set.dimensions} />
@@ -188,9 +253,28 @@ export function Stage({ spec, time, highlightedCharacterIds = [] }: StageProps) 
           time={time}
           spec={spec}
           highlighted={highlightedCharacterIds.includes(character.id)}
+          selected={character.id === selectedCharacterId}
+          onSelect={onSelectCharacter}
+          onTarget={setTarget}
         />
       ))}
-      <OrbitControls target={[0, 1.2, 0]} />
+      {target && onPoseCommit && (
+        <TransformControls
+          object={target}
+          mode={gizmoMode}
+          // Characters stay on the floor, and only turn about Y — the axes
+          // that would break that are hidden rather than merely discouraged.
+          showX={gizmoMode === "translate"}
+          showZ={gizmoMode === "translate"}
+          showY={gizmoMode === "rotate"}
+          translationSnap={0.05}
+          rotationSnap={Math.PI / 36}
+          size={0.7}
+          onMouseUp={commitPose}
+        />
+      )}
+      {/* makeDefault lets TransformControls suspend orbiting mid-drag. */}
+      <OrbitControls makeDefault target={[0, 1.2, 0]} />
     </Canvas>
   );
 }
