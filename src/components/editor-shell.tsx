@@ -16,6 +16,7 @@ import { AssetLibraryDialog } from "@/components/asset-library-dialog";
 import { CharacterRoster } from "@/components/character-roster";
 import { DashboardPanel } from "@/components/dashboard-panel";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
+import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import { SceneWorkspace } from "@/components/scene-workspace";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -149,7 +150,11 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               nativeButton={false}
               render={
                 <Link
-                  href={`/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`}
+                  href={
+                    DEMO_SCENE_FIXTURE[selectedScene.id]
+                      ? `/editor?fixture=${DEMO_SCENE_FIXTURE[selectedScene.id]}`
+                      : `/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`
+                  }
                 />
               }
             >

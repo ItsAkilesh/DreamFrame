@@ -7,6 +7,7 @@
 // Date: 2026-09-12
 
 import { EditorShell } from "@/components/editor-shell";
+import { DEMO_SCRIPT } from "@/fixtures/demoScript";
 import { getAllScripts, getCurrentScript, getScriptById } from "@/lib/get-current-script";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,12 @@ export default async function Home({ searchParams }: HomeProps) {
       getAllScripts(),
     ]);
   } catch (error) {
-    console.error("dashboard: database unreachable, rendering empty state:", error);
+    // Fall back to the bundled demo script rather than an empty shell, so the
+    // dashboard is explorable with no database (plan.md §13, §15). Its title
+    // says "(offline)" — edits made against it will not persist.
+    console.error("dashboard: database unreachable, serving the demo script:", error);
+    script = DEMO_SCRIPT;
+    allScripts = [{ id: DEMO_SCRIPT.id, title: DEMO_SCRIPT.title }];
   }
 
   // Remount on script change (including null -> a script, or script -> a

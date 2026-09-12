@@ -29,6 +29,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import type { ScriptSummary } from "@/lib/get-current-script";
 import type { ScriptData } from "@/lib/types";
 
@@ -63,9 +64,15 @@ export function AppSidebar({
   // The scene editor opens the selected scene when there is one, otherwise the
   // bundled demo scene, so it is never a dead end.
   const hasScene = Boolean(script && selectedSceneId);
-  const sceneHref = hasScene
-    ? `/editor?scriptId=${script!.id}&sceneId=${selectedSceneId}`
-    : "/editor?fixture=office";
+  // The offline demo script has no database rows behind it, so its scenes open
+  // their bundled PrevisSpec fixture instead of a ?scriptId lookup that would
+  // 404.
+  const demoFixture = selectedSceneId ? DEMO_SCENE_FIXTURE[selectedSceneId] : undefined;
+  const sceneHref = demoFixture
+    ? `/editor?fixture=${demoFixture}`
+    : hasScene
+      ? `/editor?scriptId=${script!.id}&sceneId=${selectedSceneId}`
+      : "/editor?fixture=office";
   const sceneLabel = hasScene ? "Scene editor — this scene" : "Scene editor — demo scene";
 
   return (
