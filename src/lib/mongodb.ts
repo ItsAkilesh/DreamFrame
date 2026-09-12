@@ -31,10 +31,16 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   }
 
   if (!cache.promise) {
-    cache.promise = mongoose.connect(MONGODB_URI as string).catch((error) => {
-      cache.promise = null;
-      throw error;
-    });
+    // Fail fast when the cluster is unreachable. The driver's default
+    // server-selection timeout is 30 s, which meant every dashboard request
+    // hung for half a minute before the page could fall back to its empty
+    // state — the page is server-rendered, so that is 30 s of blank browser.
+    cache.promise = mongoose
+      .connect(MONGODB_URI as string, { serverSelectionTimeoutMS: 5000 })
+      .catch((error) => {
+        cache.promise = null;
+        throw error;
+      });
   }
 
   cache.conn = await cache.promise;
