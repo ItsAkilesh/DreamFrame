@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, Move, RotateCw } from "lucide-react";
@@ -39,12 +39,18 @@ const Stage = dynamic(() => import("@/render/Stage").then((m) => m.Stage), {
 
 interface EditorViewProps {
   spec: PrevisSpec;
+  // Omitted for the bundled ?fixture= scenes, which have no database row to
+  // save into — the timeline still works there, it just doesn't persist.
+  scriptId?: string;
+  sceneId?: string;
   sceneModelAsset?: CharacterModelAsset | null;
   characterModels?: CharacterModelMap;
 }
 
 export function EditorView({
   spec: initialSpec,
+  scriptId,
+  sceneId,
   sceneModelAsset,
   characterModels,
 }: EditorViewProps) {
@@ -68,6 +74,45 @@ export function EditorView({
   const [gizmoMode, setGizmoMode] = useState<GizmoMode>("translate");
 
   const selectedCharacter = spec.cast.find((c) => c.id === selectedCharacterId) ?? null;
+
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const persistable = Boolean(scriptId && sceneId);
+  // The spec this component was handed, so the first render — and reopening a
+  // scene — doesn't immediately save the track straight back unchanged.
+  const lastSaved = useRef(JSON.stringify(initialSpec.keyframes));
+
+  useEffect(() => {
+    lastSaved.current = JSON.stringify(initialSpec.keyframes);
+    setSaveState("idle");
+  }, [initialSpec]);
+
+  // Debounced: dragging a keyframe fires a change per pointer-move, and each
+  // one would otherwise be its own round trip.
+  useEffect(() => {
+    if (!persistable) return;
+    const payload = JSON.stringify(spec.keyframes);
+    if (payload === lastSaved.current) return;
+
+    const timer = setTimeout(() => {
+      setSaveState("saving");
+      fetch(`/api/scripts/${scriptId}/scenes/${sceneId}/keyframes`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ keyframes: spec.keyframes }),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(String(response.status));
+          lastSaved.current = payload;
+          setSaveState("saved");
+        })
+        .catch((error) => {
+          console.error("keyframe save failed:", error);
+          setSaveState("error");
+        });
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [spec.keyframes, persistable, scriptId, sceneId]);
 
   function handleNoteClick(note: Note) {
     const firstBeat = spec.beats.find((b) => b.id === note.beatIds[0]);
@@ -114,6 +159,23 @@ export function EditorView({
           Back to Dashboard
         </Button>
         <span className="text-muted-foreground text-sm">{spec.scene.slugline}</span>
+        {persistable && saveState !== "idle" && (
+          <span
+            className={cn(
+              "ml-auto text-xs",
+              saveState === "error" ? "text-destructive" : "text-muted-foreground"
+            )}
+          >
+            {saveState === "saving" && "Saving keyframes…"}
+            {saveState === "saved" && "Keyframes saved"}
+            {saveState === "error" && "Couldn't save keyframes"}
+          </span>
+        )}
+        {!persistable && (
+          <span className="text-muted-foreground ml-auto text-xs">
+            Demo scene — keyframes won&apos;t be saved
+          </span>
+        )}
       </header>
 
       <div className="flex flex-1 overflow-hidden">

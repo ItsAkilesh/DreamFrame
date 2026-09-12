@@ -43,6 +43,21 @@ const DashboardMetricsSchema = new Schema(
   { _id: false }
 );
 
+// A hand-placed pose for one character at one timestamp, authored in the
+// Editor View's keyframe timeline. Stored on the scene so the track survives a
+// reload; `id` is the client-generated key the timeline already uses, kept as-is
+// so a save round-trip doesn't renumber the diamonds under the user's cursor.
+const KeyframeSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    characterId: { type: String, required: true },
+    time: { type: Number, required: true, min: 0 },
+    position: { type: [Number], required: true },
+    rotationY: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const SceneSchema = new Schema(
   {
     actId: { type: Schema.Types.ObjectId, required: true },
@@ -53,6 +68,7 @@ const SceneSchema = new Schema(
     characterIds: { type: [Schema.Types.ObjectId], default: [] },
     metrics: { type: DashboardMetricsSchema, default: null },
     modelAsset: { type: CharacterModelAssetSchema, default: null },
+    keyframes: { type: [KeyframeSchema], default: [] },
   },
   { _id: true }
 );

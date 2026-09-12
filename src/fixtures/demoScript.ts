@@ -60,6 +60,7 @@ export const DEMO_SCRIPT: ScriptData = {
       toneTarget: "tense, restrained",
       characterIds: ["demo-ch-alex", "demo-ch-jordan", "demo-ch-sam"],
       metrics: null,
+      keyframes: [],
       modelAsset: null,
     },
     {
@@ -71,6 +72,7 @@ export const DEMO_SCRIPT: ScriptData = {
       toneTarget: "quiet, exhausted",
       characterIds: ["demo-ch-alex", "demo-ch-jordan"],
       metrics: null,
+      keyframes: [],
       modelAsset: null,
     },
   ],

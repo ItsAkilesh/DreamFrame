@@ -83,6 +83,8 @@ export function fromScene(scene: Scene, allCharacters: DashboardCharacter[]): Pr
     },
     cast,
     cameras: [wideCamera],
+    // Saved timeline edits, so reopening a scene restores its track.
+    keyframes: scene.keyframes ?? [],
     beats: [
       {
         id: "b_001",

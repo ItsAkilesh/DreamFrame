@@ -12,6 +12,7 @@ import type {
   Character,
   DashboardMetrics,
   Scene,
+  SceneKeyframe,
   ScriptData,
   SimulationRun,
 } from "@/lib/types";
@@ -53,6 +54,7 @@ type LeanScript = {
     characterIds: { toString(): string }[];
     metrics: DashboardMetrics | null;
     modelAsset: LeanModelAsset | null;
+    keyframes?: SceneKeyframe[];
   })[];
   simulationRuns: (LeanId & {
     sceneId: { toString(): string };
@@ -94,6 +96,15 @@ function serialize(doc: LeanScript): ScriptData {
     characterIds: scene.characterIds.map((id) => id.toString()),
     metrics: scene.metrics,
     modelAsset: serializeModelAsset(scene.modelAsset),
+    // Plain numbers already; the [] guard covers scenes stored before
+    // keyframes existed.
+    keyframes: (scene.keyframes ?? []).map((k) => ({
+      id: k.id,
+      characterId: k.characterId,
+      time: k.time,
+      position: [k.position[0], k.position[1], k.position[2]] as [number, number, number],
+      rotationY: k.rotationY,
+    })),
   }));
 
   const simulationRuns: SimulationRun[] = (doc.simulationRuns ?? []).map((run) => ({

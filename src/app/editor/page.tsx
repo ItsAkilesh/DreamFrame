@@ -75,7 +75,13 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
     const characterModels = Object.fromEntries(
       script.characters.map((c) => [c.id, c.modelAsset])
     );
-    return <EditorView spec={spec} sceneModelAsset={scene.modelAsset} characterModels={characterModels} />;
+    return <EditorView
+        spec={spec}
+        scriptId={scriptId}
+        sceneId={sceneId}
+        sceneModelAsset={scene.modelAsset}
+        characterModels={characterModels}
+      />;
   } catch (error) {
     console.error("fromScene failed:", error);
     return <ErrorState message="This scene has no characters assigned yet, so there's nothing to block." />;

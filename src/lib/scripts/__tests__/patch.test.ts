@@ -18,6 +18,7 @@ const baseScene: Scene = {
   toneTarget: "tense",
   characterIds: ["ch_1"],
   metrics: null,
+  keyframes: [],
   modelAsset: null,
 };
 

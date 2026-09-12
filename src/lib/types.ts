@@ -52,6 +52,17 @@ export interface DashboardMetrics {
   tensionCurve: number[];
 }
 
+// Mirrors KeyframeZ in @/schema/previsSpec — duplicated rather than imported so
+// the dashboard's domain types stay free of the previs schema, same as every
+// other type in this file.
+export interface SceneKeyframe {
+  id: string;
+  characterId: string;
+  time: number;
+  position: [number, number, number];
+  rotationY: number;
+}
+
 export interface Scene {
   id: string;
   actId: string;
@@ -65,6 +76,8 @@ export interface Scene {
   // from the asset library's "scene" category — renders in place of the
   // previs Stage's placeholder room when set.
   modelAsset: CharacterModelAsset | null;
+  // Authored in the Editor View's timeline; [] for every scene never edited.
+  keyframes: SceneKeyframe[];
 }
 
 export interface Act {
