@@ -62,6 +62,7 @@ export const DEMO_SCRIPT: ScriptData = {
       characterIds: ["demo-ch-alex", "demo-ch-jordan", "demo-ch-sam"],
       metrics: null,
       keyframes: [],
+      recommendations: null,
       modelAsset: null,
     },
     {
@@ -74,6 +75,7 @@ export const DEMO_SCRIPT: ScriptData = {
       characterIds: ["demo-ch-alex", "demo-ch-jordan"],
       metrics: null,
       keyframes: [],
+      recommendations: null,
       modelAsset: null,
     },
   ],

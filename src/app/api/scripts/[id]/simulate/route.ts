@@ -109,6 +109,12 @@ export async function POST(
         action: string;
         animationAssetId: string | null;
       }[] = [];
+      // request.signal reflects the client disconnecting (its own
+      // AbortController firing, or the tab/dialog closing) — checked
+      // between turns so "Stop" actually stops paying for more of them,
+      // not just hides the UI while generation keeps running unattended.
+      let wasStopped = false;
+
       try {
         let turnIndex = 0;
         for await (const turn of simulateConversation({
@@ -117,64 +123,91 @@ export async function POST(
         })) {
           const withIndex = { ...turn, turnIndex };
           transcript.push(withIndex);
-          controller.enqueue(encoder.encode(JSON.stringify(withIndex) + "\n"));
+          if (!request.signal.aborted) {
+            controller.enqueue(encoder.encode(JSON.stringify(withIndex) + "\n"));
+          }
           turnIndex++;
+          if (request.signal.aborted) {
+            wasStopped = true;
+            break;
+          }
         }
 
-        script.simulationRuns.push({ sceneId: scene._id, transcript });
-        const savedRun = script.simulationRuns[script.simulationRuns.length - 1];
+        // Nothing generated before the stop — nothing worth a SimulationRun.
+        if (transcript.length > 0) {
+          script.simulationRuns.push({ sceneId: scene._id, transcript });
+          const savedRun = script.simulationRuns[script.simulationRuns.length - 1];
 
-        try {
-          scene.metrics = await judgeSimulation({
-            scene: { title: scene.title, text: scene.text, toneTarget: scene.toneTarget },
-            characters,
-            transcript,
-          });
-        } catch (judgeError) {
-          // The transcript is still worth keeping even if scoring fails —
-          // leave whatever metrics (if any) the scene already had.
-          console.error("Simulation judge failed:", judgeError);
+          // Skip the judge + audience panel entirely once stopped — those
+          // are several more LLM calls the user explicitly asked to avoid,
+          // on top of the transcript they're still keeping.
+          if (!wasStopped) {
+            try {
+              scene.metrics = await judgeSimulation({
+                scene: { title: scene.title, text: scene.text, toneTarget: scene.toneTarget },
+                characters,
+                transcript,
+              });
+            } catch (judgeError) {
+              // The transcript is still worth keeping even if scoring fails —
+              // leave whatever metrics (if any) the scene already had.
+              console.error("Simulation judge failed:", judgeError);
+            }
+
+            // The audience panel is several more sequential/parallel LLM
+            // calls on top of everything above — tell the client why "done"
+            // is taking longer, rather than let it look stalled the way an
+            // un-flagged slow request always does.
+            if (!request.signal.aborted) {
+              controller.enqueue(encoder.encode(JSON.stringify({ status: "reviewing" }) + "\n"));
+            }
+
+            try {
+              const personas = [
+                ...DEFAULT_AUDIENCE_PERSONAS,
+                ...script.audiencePersonas.map((p: AudiencePersonaSubdoc) => ({
+                  id: p._id.toString(),
+                  name: p.name,
+                  description: p.description,
+                })),
+              ];
+              savedRun.audienceReview = await runAudiencePanel({
+                scene: { title: scene.title, text: scene.text, toneTarget: scene.toneTarget },
+                characters,
+                transcript,
+                personas,
+              });
+            } catch (reviewError) {
+              // Same reasoning as the judge above: the transcript and any
+              // metrics it already has are still worth keeping.
+              console.error("Audience review failed:", reviewError);
+            }
+          }
+
+          await script.save();
+
+          if (!request.signal.aborted) {
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ done: true, runId: savedRun._id.toString() }) + "\n")
+            );
+          }
         }
-
-        // The audience panel is several more sequential/parallel LLM calls
-        // on top of everything above — tell the client why "done" is taking
-        // longer, rather than let it look stalled the way an un-flagged slow
-        // request always does.
-        controller.enqueue(encoder.encode(JSON.stringify({ status: "reviewing" }) + "\n"));
-
-        try {
-          const personas = [
-            ...DEFAULT_AUDIENCE_PERSONAS,
-            ...script.audiencePersonas.map((p: AudiencePersonaSubdoc) => ({
-              id: p._id.toString(),
-              name: p.name,
-              description: p.description,
-            })),
-          ];
-          savedRun.audienceReview = await runAudiencePanel({
-            scene: { title: scene.title, text: scene.text, toneTarget: scene.toneTarget },
-            characters,
-            transcript,
-            personas,
-          });
-        } catch (reviewError) {
-          // Same reasoning as the judge above: the transcript and any
-          // metrics it already has are still worth keeping.
-          console.error("Audience review failed:", reviewError);
-        }
-
-        await script.save();
-
-        controller.enqueue(
-          encoder.encode(JSON.stringify({ done: true, runId: savedRun._id.toString() }) + "\n")
-        );
       } catch (error) {
         console.error("Simulation failed:", error);
-        controller.enqueue(
-          encoder.encode(JSON.stringify({ error: "Simulation failed" }) + "\n")
-        );
+        if (!request.signal.aborted) {
+          controller.enqueue(
+            encoder.encode(JSON.stringify({ error: "Simulation failed" }) + "\n")
+          );
+        }
       } finally {
-        controller.close();
+        // Closing a controller whose consumer already disconnected throws
+        // "already closed" — harmless, but not worth letting it surface as
+        // an unhandled error after a deliberate stop.
+        try {
+          controller.close();
+        } catch {
+          // already closed
+        }
       }
     },
   });

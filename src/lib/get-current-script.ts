@@ -13,8 +13,10 @@ import type {
   AudienceReview,
   Character,
   DashboardMetrics,
+  Recommendation,
   Scene,
   SceneKeyframe,
+  SceneRecommendations,
   ScriptData,
   SimulationRun,
 } from "@/lib/types";
@@ -33,6 +35,24 @@ interface LeanModelAsset {
 
 function serializeModelAsset(asset: LeanModelAsset | null): Scene["modelAsset"] {
   return asset ? { ...asset, uploadedAt: asset.uploadedAt.toISOString() } : null;
+}
+
+interface LeanRecommendations {
+  generatedAt: Date;
+  basedOnRunId: string | null;
+  items: Recommendation[];
+}
+
+function serializeRecommendations(
+  recommendations: LeanRecommendations | null | undefined
+): SceneRecommendations | null {
+  // The `?? null` covers every scene stored before recommendations existed.
+  if (!recommendations) return null;
+  return {
+    generatedAt: recommendations.generatedAt.toISOString(),
+    basedOnRunId: recommendations.basedOnRunId,
+    items: recommendations.items.map((item) => ({ ...item })),
+  };
 }
 
 type LeanScript = {
@@ -57,6 +77,7 @@ type LeanScript = {
     metrics: DashboardMetrics | null;
     modelAsset: LeanModelAsset | null;
     keyframes?: SceneKeyframe[];
+    recommendations?: LeanRecommendations | null;
   })[];
   simulationRuns: (LeanId & {
     sceneId: { toString(): string };
@@ -109,6 +130,7 @@ function serialize(doc: LeanScript): ScriptData {
       position: [k.position[0], k.position[1], k.position[2]] as [number, number, number],
       rotationY: k.rotationY,
     })),
+    recommendations: serializeRecommendations(scene.recommendations),
   }));
 
   const simulationRuns: SimulationRun[] = (doc.simulationRuns ?? []).map((run) => ({

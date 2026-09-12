@@ -184,16 +184,17 @@ export function ScenePlayer({ scriptId, scene, characters, runSignal }: ScenePla
                 ? "Last simulation"
                 : "Scene preview"}
         </p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2"
-          onClick={() => void runSimulation()}
-          disabled={isRunning}
-        >
-          {isRunning ? <Loader2 className="size-4 animate-spin" /> : <GitBranch className="size-4" />}
-          {turns.length > 0 || isRunning ? "Run again" : "Simulate Branch Impact"}
-        </Button>
+        {isRunning ? (
+          <Button size="sm" variant="destructive" className="gap-2" onClick={stopSimulation}>
+            <Square className="size-4" />
+            Stop
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => void runSimulation()}>
+            <GitBranch className="size-4" />
+            {turns.length > 0 ? "Run again" : "Simulate Branch Impact"}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

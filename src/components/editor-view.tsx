@@ -19,6 +19,7 @@ import { NotesPanel } from "@/ui/NotesPanel";
 import { KeyframeTimeline } from "@/ui/KeyframeTimeline";
 import { runAnalyzer } from "@/analyze/index";
 import { resolvePose, specDuration } from "@/render/blocking";
+import { gizmoKeyAction, isTypingTarget, wrapAngle } from "@/render/gizmoKeys";
 import { deleteKeyframe, moveKeyframe, upsertKeyframe, type Pose } from "@/render/keyframes";
 import { usePlayhead } from "@/render/usePlayhead";
 import { cn } from "@/lib/utils";
@@ -145,6 +146,48 @@ export function EditorView({
     setSpec((current) => deleteKeyframe(current, keyframeId));
   }, []);
 
+  // Keyboard gizmo: same commit path as a drag, so a nudge and a drag are the
+  // same edit as far as the track (and the save) is concerned. Held keys
+  // repeat and accumulate, because each press re-reads the pose it just wrote.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (isTypingTarget(event.target)) return;
+
+      const action = gizmoKeyAction(event);
+      if (!action) return;
+      event.preventDefault();
+
+      if (action.kind === "mode") {
+        setGizmoMode(action.mode);
+        return;
+      }
+      if (!selectedCharacterId) return;
+
+      setSpec((current) => {
+        const pose = resolvePose(current, selectedCharacterId, time);
+        const next: Pose =
+          action.kind === "translate"
+            ? {
+                position: [
+                  pose.position[0] + action.dx,
+                  pose.position[1],
+                  pose.position[2] + action.dz,
+                ],
+                rotationY: pose.rotationY,
+              }
+            : {
+                position: pose.position,
+                rotationY: wrapAngle(pose.rotationY + action.dRotationY),
+              };
+
+        return upsertKeyframe(current, selectedCharacterId, time, next);
+      });
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedCharacterId, time]);
+
   return (
     <div className="flex h-svh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -200,7 +243,7 @@ export function EditorView({
                   size="icon-sm"
                   onClick={() => setGizmoMode("translate")}
                   aria-label="Move tool"
-                  title="Move (floor plane)"
+                  title="Move gizmo (G) — WASD or arrows nudge, Shift ×5, Alt fine"
                 >
                   <Move className={cn("size-4")} />
                 </Button>
@@ -209,7 +252,7 @@ export function EditorView({
                   size="icon-sm"
                   onClick={() => setGizmoMode("rotate")}
                   aria-label="Rotate tool"
-                  title="Rotate (facing)"
+                  title="Rotate gizmo (R) — Q E or [ ] turn, Shift 45°, Alt 5°"
                 >
                   <RotateCw className="size-4" />
                 </Button>
@@ -223,7 +266,9 @@ export function EditorView({
                       style={{ backgroundColor: selectedCharacter.color }}
                     />
                     <span className="font-medium">{selectedCharacter.name}</span>
-                    <span className="text-muted-foreground"> — drag to keyframe at the playhead</span>
+                    <span className="text-muted-foreground">
+                      {" — drag, WASD/arrows to move, Q E to turn"}
+                    </span>
                   </>
                 ) : (
                   <span className="text-muted-foreground">Click a character to keyframe it</span>
