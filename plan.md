@@ -94,7 +94,7 @@ Write the demo before you write the code. Everything that does not serve these 1
 | **Video generation via any model API** | The realtime scene *is* the deliverable. Generation is slower, costs more, and looks worse than what is already on screen. If you want a file, capture the canvas (§14). |
 | **The entire Mixamo library** | Hundreds of characters, thousands of clips. Bulk-downloading, converting, and licence-checking all of it would eat the whole build for no demo-visible benefit — you can only show two or three characters in 180 seconds. Curate 6 characters and 14 clips (§6) and treat the library as a roadmap item. |
 | **Auth / accounts** | Zero judge value. `localStorage` for the single session. |
-| **Any backend or database** | This is a static SPA. No Mongo, no Next.js API routes, no Vercel functions, no ORM. The cost is a client-side API key, which you disclose honestly (§7.5). The benefit is that nothing can be down on stage. |
+| **A heavy backend** | The app runs on Next.js (§4) with exactly **three** route handlers — `/api/claude`, `/api/tts`, `/api/health` — acting as thin key-hiding proxies. No auth, no user model, no ORM beyond the Mongoose connection that already exists, no business logic on the server. Mongo is a spec cache, never a source of truth: the app must open and run with the database unreachable (§13). |
 | **Lipsync (visemes/phonemes)** | Talk-cycle animation + caption bubble reads as speech at previs fidelity. Viseme rigging is a day of work for something previs artists do not even do. |
 | **Procedural set generation** | Exactly 3 preset rooms (§6). The LLM picks one and places props in it. It does not design architecture. |
 | **Live multiplayer co-editing / presence** | No backend, and it is invisible in a solo stage demo. |
@@ -388,23 +388,36 @@ Compute the camera positions so those flaws are **geometrically real**, not just
 
 ## §4 Stack — pinned, do not add to it
 
-React 18 · TypeScript · Vite · `three` · `@react-three/fiber` · `@react-three/drei` · `@react-three/xr` · `zustand` · `zod` · `zod-to-json-schema` · `tailwindcss` · `vitest`
+Next.js 15 (App Router) · React 19 · TypeScript · `three` · `@react-three/fiber` v9 · `@react-three/drei` · `@react-three/xr` · `zustand` · `zod` · `zod-to-json-schema` · `mongoose` · `tailwindcss` v4 · `vitest`
 
 | Layer | Choice | Note |
 |---|---|---|
-| App | Vite + React + TypeScript | Fastest cold start, no SSR nonsense |
-| 3D | `three` + `@react-three/fiber` + `@react-three/drei` | Declarative scene from JSON is a 10× win over raw three |
+| App | **Next.js 15.5 App Router**, React 19, TypeScript | Already scaffolded and committed (`0b76236`). `@/*` resolves to `./src/*`. |
+| 3D | `three` + `@react-three/fiber` + `@react-three/drei` | Declarative scene from JSON is a 10× win over raw three. **Must be client-only — see §6.6.** |
 | VR | `@react-three/xr` | WebXR session, controller rays, teleport |
-| Characters | Mixamo GLB, pre-downloaded and committed | §6 — do **not** fetch at runtime |
-| LLM | Claude via `POST /v1/messages`, tool use for structured output | §7 |
-| Voice | ElevenLabs REST, pre-generated and cached | §8, T1 |
-| Validation | Zod mirroring §3 | Repair, never crash |
-| State | Zustand — one store, `src/store/useScene.ts` | Spec + playhead + notes |
-| Styling | Tailwind | |
-| Persistence | `localStorage` | |
-| Backend | **none** | Static SPA. See §2 for why, §7.5 for the honest caveat. |
+| Characters | Mixamo GLB, committed under `public/assets/` | §6 — do **not** fetch at runtime |
+| LLM | Claude via a **server route** proxying `POST /v1/messages` | §7 — keys never reach the browser |
+| Voice | ElevenLabs via a **server route** | §8, T1 |
+| Validation | Zod mirroring §3 | Repair, never crash. Runs on both sides of the route. |
+| State | Zustand — one store, `src/store/useScene.ts` | Spec + playhead + notes. Client-side only. |
+| Styling | Tailwind v4 (`@tailwindcss/postcss`) | CSS-first config — there is no `tailwind.config.js` |
+| Persistence | `localStorage` first, Mongo optional | §13 — the demo must survive an unreachable database |
+| Database | MongoDB Atlas via the cached Mongoose connection in `src/lib/mongodb.ts` | Already written. A cache for specs, never a source of truth. |
 
-Anything else requires asking first. No UI component libraries, no state-machine libraries, no animation libraries, no ORM, no backend.
+**Version pins that matter.** React 19 requires **`@react-three/fiber` v9 or newer** — v8 peer-depends on React 18 and will either refuse to install or misbehave quietly. `@react-three/drei` and `@react-three/xr` need their matching majors. Resolve this at M0 while it costs ten minutes; a peer-dependency fight at hour 4 eats an afternoon.
+
+**The lockfile is `pnpm-lock.yaml` — use `pnpm`.** Running `npm install` creates a competing `package-lock.json` and two people then resolve different trees.
+
+**Two scripts to add to `package.json`** — the scaffold ships `dev`/`build`/`start`/`lint` only, and §10 depends on these:
+
+```jsonc
+"typecheck": "tsc --noEmit",
+"test": "vitest run"
+```
+
+Anything else requires asking first. No UI component libraries, no state-machine libraries, no animation libraries, no second backend framework.
+
+**Before writing any Next.js code**, read the guides in `node_modules/next/dist/docs/` as `AGENTS.md` instructs. This Next.js version has breaking changes from what you may remember, and the route-handler shape in §7.5 is copied from the committed `src/app/api/health/route.ts` rather than recalled.
 
 ---
 
@@ -412,40 +425,51 @@ Anything else requires asking first. No UI component libraries, no state-machine
 
 ```
 src/
+  app/                          # Next.js App Router — from the committed scaffold
+    layout.tsx  globals.css
+    page.tsx                    # the one screen: input -> stage -> panels
+    api/
+      claude/route.ts           # proxies blockScene + rationale (§7.5)
+      tts/route.ts              # proxies ElevenLabs (§8, T1)
+      health/route.ts           # already written
+  lib/
+    mongodb.ts                  # already written — cached Mongoose connection
   schema/
-    previsSpec.ts             # Zod + TS types. Single source of truth (§3).
-    repair.ts                 # coerceSpec (§3.11)
-  fixtures/                   # kitchen_twohander.json, office_threehander.json
-  assets/manifest.ts          # closed enums + GLB path helpers (§6.1)
+    previsSpec.ts               # Zod + TS types. Single source of truth (§3).
+    repair.ts                   # coerceSpec (§3.11)
+  fixtures/                     # kitchen_twohander.json, office_threehander.json
+  assets/manifest.ts            # closed enums + GLB path helpers (§6.1)
   ai/
-    blockScene.ts             # script -> PrevisSpec (tool-use call, §7.1)
-    rationale.ts              # Note[] -> director notes (§7.2)
-    structureScript.ts        # T1: full script -> scene list (§7.3)
-    fallback.ts               # template spec of last resort
-    prompts/
-  render/
-    Stage.tsx                 # <Canvas>, lights, set
-    Character.tsx             # GLB + clip mixer, driven by playhead
+    blockScene.ts               # script -> PrevisSpec, via /api/claude (§7.1)
+    rationale.ts                # Note[] -> director notes (§7.2)
+    structureScript.ts          # T1: full script -> scene list (§7.3)
+    fallback.ts                 # template spec of last resort
+    prompts/                    # shared by the route handler and the client
+  render/                       # all 'use client'
+    Stage.tsx                   # <Canvas>, lights, set
+    Character.tsx               # GLB + clip mixer, driven by playhead
     Prop.tsx
-    CameraRig.tsx             # lens_mm -> fov, shot presets
-    animationMap.ts           # emotion+action -> ClipId (§6.5)
-    rooms/                    # kitchen.ts, office.ts, bar.ts
+    CameraRig.tsx               # lens_mm -> fov, shot presets
+    animationMap.ts             # emotion+action -> ClipId (§6.5)
+    rooms/                      # kitchen.ts, office.ts, bar.ts
     XRSession.tsx
   analyze/
-    geom.ts                   # shared helpers (§9.1)
-    checks/                   # one file per check, pure fn, unit-tested
-    density.ts                # dialogue density panel (§9.4)
+    geom.ts                     # shared helpers (§9.1)
+    checks/                     # one file per check, pure fn, unit-tested
+    density.ts                  # dialogue density panel (§9.4)
     index.ts
   voice/
-    tts.ts                    # T1: ElevenLabs fetch + cache (§8)
-  ui/
+    tts.ts                      # T1: /api/tts client + audio cache (§8)
+  ui/                           # all 'use client'
     ScriptInput.tsx  Timeline.tsx  NotesPanel.tsx
     ShotList.tsx     CastPanel.tsx  SceneTree.tsx
   store/useScene.ts
 public/assets/characters/  public/assets/props/
 ```
 
-`analyze/checks/*` are pure functions over JSON — they are the only thing worth unit-testing, testing them takes ten minutes, and they are what saves you on stage.
+`analyze/checks/*` are pure functions over JSON — they are the only thing worth unit-testing, testing them takes ten minutes, and they are what saves you on stage. They import nothing from `next/*`, so they behave identically under vitest, inside a route handler, and in the browser.
+
+**The interactive app is one client island.** `page.tsx` stays a server component and renders the stage through `next/dynamic` with SSR disabled (§6.6). Nothing is fetched at first paint — the spec arrives from a route handler after the user clicks.
 
 ---
 
@@ -561,6 +585,12 @@ The speaking character on a beat with a line plays `talk_a`/`talk_b` (alternatin
 
 ### 6.6 Loading rules
 
+- **R3F must never render on the server.** `three` touches `window`, `document`, and WebGL at module scope. Pull the canvas in through `next/dynamic` with `ssr: false`, from a `'use client'` module:
+  ```tsx
+  const Stage = dynamic(() => import("@/render/Stage"), { ssr: false });
+  ```
+  Skipping this gives you a build-time `ReferenceError: window is not defined` that reads like an asset bug and is not one. `pnpm build` is the check; run it at M0.
+- **Assets are served from `public/`.** `public/assets/characters/f_casual.glb` is fetched as `/assets/characters/f_casual.glb`, so the manifest path helpers in §6.1 are already correct and need no change.
 - `useGLTF.preload()` every character and prop at app boot. A 20 MB preload on venue wifi during the demo is a lost demo — preload happens while the judge is still reading the input box.
 - Clone via `SkeletonUtils.clone()` for repeated characters, never a shallow clone, or two characters will share one skeleton and animate identically.
 - One `AnimationMixer` per character instance, stored in a ref, updated in `useFrame`. Crossfade clips over 0.25 s.
@@ -731,13 +761,44 @@ Only after §11's M7 is done and rehearsed. Re-run `blockScene` on the same scen
 
 **Warning, and this is the reason it is T2 and not T1.** Your entire defence against "isn't this just an LLM wrapper?" is that every note comes from geometry (§15). An LLM scoring panel is exactly the plausible mush that defence is aimed at. If you build it: label it visibly as an AI read, keep it in a separate panel from `NotesPanel`, and never let a judge score change a `Note`. Geometry and opinion do not share a surface.
 
-### 7.5 Client-side API notes
+### 7.5 Server route, not a browser call
 
-- Call `https://api.anthropic.com/v1/messages` directly. There is no backend.
-- The key lives in `import.meta.env.VITE_ANTHROPIC_API_KEY` and `.env.local` is gitignored. It is exposed in the client — acceptable for a hackathon demo, and **say so plainly in the README** rather than hoping nobody notices. Rotate it after the event.
-- Set `anthropic-dangerous-direct-browser-access: true` in the headers.
-- Wrap every call in a 45-second timeout. On timeout, take the fallback path — never leave a spinner running while a judge watches.
-- Log every request/response pair to `localStorage` under `dreamframe:log:*`. When the demo misbehaves you will want the last successful spec, and you will not have time to reproduce it.
+Both Claude calls go through one route handler, `src/app/api/claude/route.ts`. The browser never sees a key. Shape follows the committed health route:
+
+```ts
+// route.ts
+// Purpose: Proxy Claude calls for blockScene and rationale.
+
+import { NextResponse } from "next/server";
+
+export const maxDuration = 60;   // blockScene can run 25 s; see below
+
+export async function POST(req: Request) {
+  const { op, payload } = await req.json();          // op: "block" | "rationale"
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(buildRequest(op, payload)),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!res.ok) {
+    console.error("claude proxy failed:", res.status, await res.text());
+    return NextResponse.json({ error: "upstream" }, { status: res.status });
+  }
+  return NextResponse.json(await res.json());
+}
+```
+
+- `ANTHROPIC_API_KEY` and `ELEVENLABS_API_KEY` live in `.env.local` (gitignored) and in the deployment's environment settings. **Never prefix them `NEXT_PUBLIC_`** — that inlines the value into the client bundle and undoes the entire point of this route.
+- Drop `anthropic-dangerous-direct-browser-access`. It existed only for browser calls; keeping it advertises a call that no longer happens.
+- **Validate on both sides.** The handler Zod-parses what it returns; `src/ai/blockScene.ts` Zod-parses what it receives. Keep the repair pass (§7.1) server-side so a retry costs no extra browser round trip.
+- 45-second timeout via `AbortSignal.timeout`. On timeout return a 504 and let the client take the fallback path — never leave a spinner running while a judge watches.
+- **Mind the platform function timeout.** It is the failure this architecture adds. A cold `blockScene` can take 25 s, default limits are often lower, and `next dev` has no timeout at all — so this passes locally and dies on the deployed URL. Set `maxDuration` explicitly, confirm your plan permits it, and test against the deployment.
+- Log every request/response pair to `localStorage` under `dreamframe:log:*` **client-side**, and `console.error` server-side. Server logs vanish when the function scales down; the browser copy is the one you will actually read at 3am.
 
 ### 7.6 Prompt iteration budget
 
@@ -750,11 +811,11 @@ Only after §11's M7 is done and rehearsed. Re-run `blockScene` on the same scen
 Adds the one thing the 3D view can't do on its own: the scene *sounds* like a scene. It is T1 because the demo lands without it and a rate limit mid-pitch is a silent failure with a judge watching.
 
 - **Per-character voice.** `Character.voiceId` is assigned round-robin from a small hand-picked list of ElevenLabs voice ids at block time. No voice cloning, no likeness of a real performer.
-- **`src/voice/tts.ts`**: `speak(beat)` → checks an IndexedDB/`localStorage` cache keyed by `hash(voiceId + text)`, and only calls the API on a miss. Audio is stored as a blob URL.
+- **`src/voice/tts.ts`**: `speak(beat)` → checks an IndexedDB/`localStorage` cache keyed by `hash(voiceId + text)`, and only calls `/api/tts` on a miss. Audio is stored as a blob URL.
 - **Delivery from `line.emotion`** — pass it through as style/stability parameters. Same field that drives §6.5, so voice and body language agree without extra bookkeeping.
 - **Sync to the playhead, not to the audio.** The timeline is the clock. `startTime` fires playback; if the audio is longer than `duration`, let it run over the cut — that reads as natural overlap. Never let audio drive the playhead, or one slow fetch desyncs the whole scene.
 - **Pre-generate the demo scene's audio the night before** and never clear that cache. On stage you are playing files, not making requests. Live generation is a stretch flourish on a short second scene, after the main demo has landed.
-- **The API key is client-side**, same caveat as §7.5. Timeout 10 s; on failure the beat plays silently with its caption — the demo continues.
+- **The key stays server-side**, same as §7.5 — `src/app/api/tts/route.ts` calls ElevenLabs and returns the audio bytes. Timeout 10 s; on failure the beat plays silently with its caption and the demo continues.
 
 ---
 
@@ -951,26 +1012,31 @@ And against `kitchen_twohander.json`: **zero notes of any kind**. A clean scene 
 9. **Stay inside the milestone's owned paths** (§11). Four people are working in this repo simultaneously; touching another workstream's files causes merge conflicts that cost more than the feature.
 10. **No abstraction until the third occurrence.** A hackathon repo with a plugin architecture is a failed hackathon repo. This code lives 36 hours.
 
+**Agent instruction files.** `CLAUDE.md` at the repo root is a single line (`@AGENTS.md`), and `AGENTS.md` carries Next.js rules that `next dev` rewrites on every run. Do not delete either — removing the block only recreates it as an uncommitted change. This document is the plan; those two are the agent's standing instructions, and §10 is the part of the plan they exist to enforce.
+
 ### Conventions
 
 - Functional components, named exports, no default exports except route-level.
 - `.tsx` only where JSX exists.
 - State lives in `src/store/useScene.ts`. Component-local state only for UI-ephemeral things (open/closed, hover).
 - No `any`. Use `unknown` plus a Zod parse at boundaries.
-- Comments explain *why*, never *what*. Zero docstring blocks on obvious functions.
+- Comments explain *why*, never *what*. The one exception is the scaffold's file header (`// file.ts` / `Purpose:` / `Author:` / `Date:`) — keep it on files you add, because matching the repo beats your preference.
 
 ### Commands
 
 ```bash
-npm run dev        # Vite dev server
-npm run typecheck  # tsc --noEmit  — must pass before any milestone is "done"
-npm run test       # vitest run    — analyzer checks only
-npm run build      # production build — run once at M7, not before
+pnpm dev           # next dev — localhost:3000
+pnpm typecheck     # tsc --noEmit  — must pass before any milestone is "done"
+pnpm test          # vitest run    — analyzer checks only
+pnpm lint          # eslint
+pnpm build         # next build — also the SSR check; run it at M0, not just at M7
 ```
+
+`typecheck` and `test` are not in the scaffold's `package.json` yet — add them at M0 (§4). Use `pnpm`, not `npm`.
 
 ### Definition of done for any task
 
-- `npm run typecheck` clean
+- `pnpm typecheck` clean
 - The relevant fixture still renders
 - No new console errors
 - You have stated in one sentence what a reviewer should click to verify it
@@ -987,7 +1053,7 @@ Feature freeze. Bugfix, console cleanup, and demo reliability only. If asked for
 
 | # | Window | Owner | Owned paths |
 |---|---|---|---|
-| M0 | h0–2 | all | `src/schema/`, `src/assets/`, `src/fixtures/` |
+| M0 | h0–2 | all | `src/schema/`, `src/assets/`, `src/fixtures/`, `package.json` |
 | M1 | h2–8 | A | `src/render/`, `public/assets/` |
 | M2 | h6–12 | B | `src/ai/` |
 | M3 | h10–16 | A | `src/render/CameraRig.tsx`, `src/ui/Timeline.tsx` |
@@ -996,13 +1062,15 @@ Feature freeze. Bugfix, console cleanup, and demo reliability only. If asked for
 | M6 | h26–30 | A + D | `src/render/XRSession.tsx`, `src/voice/`, `src/ai/structureScript.ts` |
 | M7 | h30–34 | D | everything, bugfix only |
 
-**Do not touch paths you don't own.** Four people, one repo, no time for merge archaeology.
+**Do not touch paths you don't own.** Four people, one repo, no time for merge archaeology. `src/app/` and `src/lib/` came from the scaffold — the route handlers in §7.5 and §8 are owned by B and D respectively, and nobody else edits them.
 
-### M0 — Contract and scaffold · h0–2
+### M0 — Contract and placeholder stage · h0–2
 
-Build: Vite scaffold, `previsSpec.ts` (Zod + types), `manifest.ts`, `repair.ts` stub, both fixtures hand-written, `<Stage>` rendering the kitchen fixture with placeholder primitives (room box from `set.dimensions`, boxes for props, 1.75 m capsules for characters on their marks facing their `rotationY`, three-point lighting, OrbitControls). No GLB loading.
+**The app scaffold already exists** — `0b76236` committed Next.js 15, Tailwind v4, the cached Mongoose connection, and `/api/health`. M0 no longer creates it, and must not re-scaffold or replace it.
 
-**Acceptance:** `npm run dev` shows a lit room with box props and capsule characters standing on their marks. `npm run typecheck` clean. Both fixtures parse.
+Build: `previsSpec.ts` (Zod + types), `manifest.ts`, `repair.ts` stub, both fixtures hand-written, the `typecheck`/`test` scripts from §4, R3F + drei + xr installed at React-19-compatible majors, and `<Stage>` rendering the kitchen fixture with placeholder primitives — room box from `set.dimensions`, boxes for props, 1.75 m capsules for characters on their marks facing their `rotationY`, three-point lighting, OrbitControls — mounted through `next/dynamic` with `ssr: false`. No GLB loading.
+
+**Acceptance:** `pnpm dev` shows a lit room with box props and capsule characters on their marks at `localhost:3000`. `pnpm typecheck` clean. **`pnpm build` succeeds** — that is the SSR check and the one that catches a missing `'use client'`. Both fixtures parse.
 
 **Gate:** if this isn't done by hour 2, cut M6 now rather than at hour 20.
 
@@ -1022,7 +1090,7 @@ Build: `blockScene()`, tool-use call, Zod validation, one repair pass, `coerceSp
 **Acceptance:** paste 5 script pages you've never tested. At least 4 produce a spec that renders with zero manual edits. Cached re-runs are instant.
 
 **Prompt:**
-> M2 only. Read §7 and §3. Implement `src/ai/blockScene.ts`: build the tool schema from `PrevisSpecZ` with zod-to-json-schema, call the Anthropic messages API from the browser with model `claude-opus-5`, validate, run exactly one repair pass on failure, then `coerceSpec`, then the template fallback. Cache by hash of script+room in localStorage. 45 s timeout. Do not touch `src/render/` or `src/analyze/`.
+> M2 only. Read §7 and §3. Implement `src/app/api/claude/route.ts` (server-side, key from `process.env`, `maxDuration` set) and `src/ai/blockScene.ts` (client-side caller): build the tool schema from `PrevisSpecZ` with zod-to-json-schema, call Claude with model `claude-opus-5` **from the route handler, never the browser**, validate, run exactly one repair pass server-side on failure, then `coerceSpec`, then the template fallback. Cache by hash of script+room in localStorage. 45 s timeout. Do not touch `src/render/` or `src/analyze/`.
 
 ### M3 — Cameras and playback · h10–16
 
@@ -1099,6 +1167,10 @@ All four sync in the first 30 minutes to lock §3 and the call signatures in §7
 | **Perf tanks with 6 characters + shadows** | Medium | Shadow map 1024, single shadow-casting light, no post-processing. Test at M1, not hour 32. |
 | **ElevenLabs latency or rate limit on stage** | Medium | Pre-generate the demo audio; on stage you are playing cached files. On any failure the beat plays silently with its caption. |
 | **Script parsing mis-segments a real script** | Medium | Real scripts vary wildly in format. Keep the hand-seeded demo scene as the guaranteed path, and rehearse the upload moment with the **actual file** you will upload — not a different one. |
+| **A route handler exceeds the platform function timeout** | High | The failure this stack adds. `blockScene` can take 25 s, default limits are often lower, and `next dev` has no timeout — so it passes locally and dies deployed. Set `maxDuration` (§7.5), confirm the plan allows it, and test the deployed URL. |
+| **MongoDB Atlas unreachable on stage** | Medium | Mongo is a cache, never a source of truth. `localStorage` holds the demo spec and audio, and the app must open with the database down. Confirm `/api/health` in the first 30 minutes, not "when we need it." |
+| **R3F breaks the production build** | Medium | `three` at module scope throws on the server. Mount the canvas via `next/dynamic` with `ssr: false` (§6.6) and run `pnpm build` at M0 — not at M7 — so it surfaces in hour two. |
+| **React 19 / R3F peer-dependency fight** | Medium | Pin `@react-three/fiber` v9+ with matching drei and xr majors (§4). Settle it at M0 while it costs ten minutes. |
 | **Four people blocking on each other** | Medium | Lock §3 and §7's signatures in hour 0; everyone builds against fixtures until hour 10. Own your paths (§11). |
 | **API rate limit / quota during the demo** | Low–Medium | Cache every response to `localStorage` keyed by script hash. The demo scene must run fully offline. |
 | **Scope creep into T2** | Medium | §2 is written down. Re-reading it is free; re-deciding it at hour 28 is not. |
@@ -1175,12 +1247,12 @@ Nothing. There is no debugging on stage. If it breaks, you switch to tab 2 and k
 ### Setup, before any prompt
 
 ```bash
-mkdir dreamframe && cd dreamframe && git init
-# copy this file to the repo root as plan.md
+git clone git@github.com:ItsAkilesh/DreamFrame.git && cd DreamFrame
+pnpm install          # lockfile is pnpm — do not run npm install
 claude
 ```
 
-`/init` is **not** needed — this file is already better than a generated one. Enter plan mode (`Shift+Tab` twice) and paste the M0 prompt.
+`/init` is **not** needed — this file is already better than a generated one, and the repo already has `CLAUDE.md` → `AGENTS.md`. Enter plan mode (`Shift+Tab` twice) and paste the M0 prompt.
 
 ### The M0 prompt (plan mode)
 
@@ -1195,13 +1267,14 @@ claude
 > 3. `src/schema/repair.ts` — `coerceSpec(raw: unknown)` implementing the five repair steps in §3.11, returning `{ spec, warnings }`. Levenshtein snapping for out-of-enum strings, numeric clamping, orphan-reference dropping, default camera rig injection, missing-shot backfill.
 > 4. `src/fixtures/kitchen_twohander.json` and `src/fixtures/office_threehander.json`, hand-authored, both validating against the schema. The office fixture must contain the three deliberate flaws listed in §3.12 — a line crossing between beats 7 and 8, four consecutive medium shots, and a character with 9 lines who is never a shot subject. Compute the camera positions so those flaws are geometrically real, not just labelled.
 >
-> Plus a Vite + React + TypeScript + Tailwind scaffold whose default route renders `src/render/Stage.tsx`: the kitchen fixture drawn with **placeholder primitives only** — a room box from `set.dimensions`, boxes for props, 1.75 m capsules for characters on their marks facing their `rotationY`, and the three-point lighting preset. OrbitControls. No GLB loading.
+> Plus, **on top of the Next.js app that already exists in this repo** — do not re-scaffold it, do not convert it to Vite, do not remove the Mongoose connection or `/api/health`: install `three`, `@react-three/fiber` v9+, `@react-three/drei` and `@react-three/xr` at React-19-compatible majors, add the `typecheck` and `test` scripts from §4, and make `src/app/page.tsx` render `src/render/Stage.tsx` through `next/dynamic` with `ssr: false` — the kitchen fixture drawn with **placeholder primitives only**: a room box from `set.dimensions`, boxes for props, 1.75 m capsules for characters on their marks facing their `rotationY`, and the three-point lighting preset. OrbitControls. No GLB loading.
 >
 > **Constraints.**
 > - Pinned stack from §4. No other dependencies without asking.
 > - Metres, Y-up, right-handed, radians.
 > - `Stage.tsx` must render a spec with only required fields present, and must never throw. Missing or unknown assets → placeholder plus `console.warn`.
-> - Do not scaffold `src/ai/`, `src/analyze/`, `src/voice/`, `src/ui/` beyond a single root layout, or any milestone past M0.
+> - Do not scaffold `src/ai/`, `src/analyze/`, `src/voice/`, `src/ui/` beyond what `page.tsx` needs to mount the stage, and nothing from any milestone past M0. Leave `src/app/api/` alone — the route handlers are M2's.
+> - Read `AGENTS.md` and the relevant guides in `node_modules/next/dist/docs/` before writing Next.js code. This Next.js version differs from what you may recall.
 > - No abstractions, no config layers, no plugin patterns. This code lives 36 hours.
 >
 > **Output.** Show me the file tree and a per-file summary of what each will contain, then stop. I will approve before you write anything. Flag any place where §3 is ambiguous or internally inconsistent rather than guessing — that section is the contract four people are about to build against, and an ambiguity found now costs minutes instead of hours.
@@ -1223,7 +1296,7 @@ Run each in plan mode, approve, then build. The per-milestone prompts in §11 ar
 > Read §11 and the sections listed for {M#}. Scope is {M#} only, owned paths only. Show me the plan and the acceptance test you'll run, then stop.
 
 **Finishing any milestone:**
-> Run `npm run typecheck` and `npm run test`. Then state in one sentence what I should click to verify {M#} is done, and list anything you built that is outside {M#}'s scope so I can decide whether to revert it.
+> Run `pnpm typecheck` and `pnpm test`. Then state in one sentence what I should click to verify {M#} is done, and list anything you built that is outside {M#}'s scope so I can decide whether to revert it.
 
 **When something breaks at 3am:**
 > Do not refactor. Find the smallest change that makes {symptom} stop, apply it, and tell me what you traded away. We freeze in {n} hours.
@@ -1249,11 +1322,11 @@ Review the last change. List anything in it that is outside the current mileston
 
 ## §17 The first 90 minutes, in order
 
-1. Everyone reads §0–§3 and §10. (15 min)
+1. Everyone reads §0–§3 and §10, plus the appendix's second pass so nobody re-litigates the stack. (15 min)
 2. Argue the cut list in §2 and commit to it. Written down, no reopening. (10 min)
 3. D writes fixture one by hand in a text editor while A starts the Mixamo downloads. (30 min)
-4. B creates the repo, scaffolds Vite, writes the Zod schema from §3. (30 min)
-5. Everyone pulls, fixture validates, empty room renders. (10 min)
+4. B clones the repo, `pnpm install`, adds R3F at React-19-compatible majors and the two scripts from §4, writes the Zod schema from §3. (30 min)
+5. Everyone pulls, fixture validates, empty room renders, and **`pnpm build` passes** — the last one is the SSR check and skipping it defers a hard failure to hour 30. (10 min)
 
 If step 5 has not happened by hour two, you are behind — cut M6 immediately rather than at hour 20.
 
@@ -1266,7 +1339,7 @@ This file consolidates ten source documents: nine from the PreVis doc set (`PLAN
 | Conflict | Resolution |
 |---|---|
 | 36-hour vs 9-hour clock | 36 hours, M0–M7 (§11). |
-| Static Vite SPA vs Next.js + MongoDB + Vercel | Static SPA, no backend, no database, `localStorage` only (§4). Cost: client-side API keys, disclosed in the README (§7.5). |
+| Static Vite SPA vs Next.js + MongoDB + Vercel | **Revised in the second pass below.** Next.js 15 + Atlas, matching `0b76236`: the PreVis *architecture* hosted in the App Router, with three thin route handlers hiding the keys (§7.5). Mongo is a spec cache, never a source of truth. |
 | Single scene vs Acts/Scenes/full script | Spec stays single-scene (§3). Full-script upload becomes a T1 **pre-pass** that segments and selects a scene (§7.3). Multi-scene state remains cut. |
 | "Exactly two Claude calls" vs script parser + simulation + judge | Two on the critical path; `structureScript` is a gated T1 third, `judgeBranch` a T2 fourth (§7). |
 | LLM judge metrics vs geometry-only notes | Judge scores demoted to T2 with an explicit warning (§7.4): they undercut the central claim in §15 and must never share a surface with `Note`. |
@@ -1277,4 +1350,12 @@ This file consolidates ten source documents: nine from the PreVis doc set (`PLAN
 | Liveblocks presence | Cut — no backend, and invisible in a solo stage demo (§2). |
 | Team roles | PreVis's A/B/C/D (renderer / AI / analyzer+UI / product), with voice added to D (§12). |
 | `claude-sonnet-4-6` in the source prompts | Updated to `claude-opus-5`; `budget_tokens` removed (it 400s on current models); `claude-sonnet-5` noted as the cost step-down (§7). |
-| `CLAUDE.md` as a separate file | Folded into §10. If you want the agent to read rules automatically, copy §10 into a `CLAUDE.md` at the repo root. |
+| `CLAUDE.md` as a separate file | Folded into §10. `main` separately carries a one-line `CLAUDE.md` → `AGENTS.md` holding Next.js agent rules that `next dev` regenerates; both are left in place (§10). |
+
+### Second pass — reconciling with `0b76236`
+
+The first pass resolved the stack toward PreVis's static Vite SPA. **Fifty-two seconds** after that commit was authored, `main` gained a Next.js 15 + MongoDB Atlas scaffold. The two were written in parallel, neither aware of the other — precisely the hour-one integration risk §13 warns about, arriving before anyone had read the warning.
+
+Rather than revert a working scaffold or ship a plan contradicting the code, the stack was reconciled toward the code and the *architecture* kept whole. Nothing load-bearing moved: §3's contract, §6's asset pipeline, §9's analyzer, §11's milestones and §2's scope tiers are untouched, because none of them ever depended on how the page is served. What changed: §4, §5, §6.6, §7.5, §8, §10, M0, M2's prompt, §13, and §16.
+
+The trade is real and worth stating plainly. The SPA's virtue was that **nothing could be down** — no deploy, no database, no function timeout standing between a judge and the demo. That guarantee is gone, and §13 carries four new rows because of it. In exchange the API keys leave the browser, which the previous revision flagged as its own worst wart, and four thousand committed lines of a teammate's work stay. The mitigations all reduce to one habit: `pnpm build` and the deployed URL are the checks that matter, and both belong at M0 rather than M7.
