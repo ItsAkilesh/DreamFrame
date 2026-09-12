@@ -367,7 +367,10 @@ export function ModelViewer() {
   const [loop, setLoop] = React.useState(true);
   const [time, setTime] = React.useState(0);
 
-  const [showHuman, setShowHuman] = React.useState(true);
+  // Off by default: the reference capsule is a measuring stick, not scenery, so
+  // an empty viewer should be empty. The "human" toggle below turns it on when
+  // you actually want to judge an asset's scale against it.
+  const [showHuman, setShowHuman] = React.useState(false);
   const [showGrid, setShowGrid] = React.useState(true);
   const [showBox, setShowBox] = React.useState(false);
   const [showAxes, setShowAxes] = React.useState(false);
