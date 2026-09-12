@@ -20,6 +20,7 @@ const baseScene: Scene = {
   metrics: null,
   keyframes: [],
   modelAsset: null,
+  recommendations: null,
 };
 
 const baseAct: Act = { id: "act_1", title: "Act One", order: 1 };

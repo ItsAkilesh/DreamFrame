@@ -63,6 +63,49 @@ export interface SceneKeyframe {
   rotationY: number;
 }
 
+// A single actionable suggestion for improving a scene, produced by
+// src/recommend. "detected" items come from deterministic checks over the
+// scene, its cast, and its latest simulated transcript; "ai" items are craft
+// notes a script-doctor LLM pass added on top (see
+// src/lib/ai/recommendScript.ts). The distinction is surfaced in the UI — a
+// number computed from the actual data carries more weight than a plausible
+// opinion, so the two are never presented as the same thing.
+export type RecommendationPriority = "high" | "medium" | "low";
+export type RecommendationCategory =
+  | "dialogue"
+  | "pacing"
+  | "character"
+  | "tone"
+  | "structure";
+export type RecommendationSource = "detected" | "ai";
+
+export interface Recommendation {
+  // Stable for a given scene + check + subject, so re-running recommendations
+  // doesn't reshuffle keys under the user's cursor.
+  id: string;
+  code: string;
+  priority: RecommendationPriority;
+  category: RecommendationCategory;
+  source: RecommendationSource;
+  title: string;
+  // What's off, in plain language.
+  detail: string;
+  // The concrete change to make. Always present — a note without a fix is a
+  // complaint, not a recommendation.
+  fix: string;
+  characterIds: string[];
+  // The line or phrase the note is about, when there is one.
+  quote: string | null;
+}
+
+export interface SceneRecommendations {
+  generatedAt: string;
+  // The simulation run whose transcript the transcript-derived items were
+  // computed against; null when the scene had never been simulated.
+  basedOnRunId: string | null;
+  items: Recommendation[];
+}
+
 export interface Scene {
   id: string;
   actId: string;
@@ -78,6 +121,10 @@ export interface Scene {
   modelAsset: CharacterModelAsset | null;
   // Authored in the Editor View's timeline; [] for every scene never edited.
   keyframes: SceneKeyframe[];
+  // The last saved AI-polished recommendation set; null until the user asks
+  // for one. The deterministic checks behind it run live in the panel and
+  // need nothing stored.
+  recommendations: SceneRecommendations | null;
 }
 
 export interface Act {

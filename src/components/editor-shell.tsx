@@ -9,12 +9,13 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, Clapperboard } from "lucide-react";
+import { Box, Clapperboard, Lightbulb, LineChart } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AssetLibraryDialog } from "@/components/asset-library-dialog";
 import { CharacterRoster } from "@/components/character-roster";
 import { DashboardPanel } from "@/components/dashboard-panel";
+import { RecommendationsPanel } from "@/components/recommendations-panel";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
 import { DEMO_SCENE_FIXTURE } from "@/fixtures/demoScript";
 import { SceneWorkspace } from "@/components/scene-workspace";
@@ -25,6 +26,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ScriptSummary } from "@/lib/get-current-script";
 import type { ScriptData } from "@/lib/types";
 
@@ -176,12 +178,34 @@ export function EditorShell({ script, allScripts }: EditorShellProps) {
               characters={script.characters}
               simulationRuns={script.simulationRuns}
             />
-            <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l">
-              <DashboardPanel
-                scene={selectedScene}
-                simulationRuns={script.simulationRuns}
-                characters={script.characters}
-              />
+            <aside className="bg-sidebar flex w-80 shrink-0 flex-col overflow-hidden border-l">
+              <Tabs defaultValue="metrics" className="min-h-0 flex-1 gap-0">
+                <TabsList className="m-3 mb-0 w-auto">
+                  <TabsTrigger value="metrics" className="flex-1 gap-1.5">
+                    <LineChart />
+                    Metrics
+                  </TabsTrigger>
+                  <TabsTrigger value="recommendations" className="flex-1 gap-1.5">
+                    <Lightbulb />
+                    Improve
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="metrics" className="min-h-0 overflow-y-auto">
+                  <DashboardPanel
+                    scene={selectedScene}
+                    simulationRuns={script.simulationRuns}
+                    characters={script.characters}
+                  />
+                </TabsContent>
+                <TabsContent value="recommendations" className="min-h-0 overflow-y-auto">
+                  <RecommendationsPanel
+                    scriptId={script.id}
+                    scene={selectedScene}
+                    characters={script.characters}
+                    simulationRuns={script.simulationRuns}
+                  />
+                </TabsContent>
+              </Tabs>
             </aside>
           </div>
         ) : (

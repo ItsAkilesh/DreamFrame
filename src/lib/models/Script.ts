@@ -58,6 +58,38 @@ const KeyframeSchema = new Schema(
   { _id: false }
 );
 
+// A saved, AI-polished recommendation set for one scene. The deterministic
+// checks behind it (src/recommend) run live in the panel and need nothing
+// stored; only the LLM pass's output is worth persisting, since it costs a
+// call to produce. `characterIds` are plain strings, not ObjectIds — an AI
+// note's cast is resolved by name and may legitimately come back empty.
+const RecommendationSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    code: { type: String, required: true },
+    priority: { type: String, required: true },
+    category: { type: String, required: true },
+    source: { type: String, required: true },
+    title: { type: String, required: true },
+    detail: { type: String, default: "" },
+    fix: { type: String, default: "" },
+    characterIds: { type: [String], default: [] },
+    quote: { type: String, default: null },
+  },
+  { _id: false }
+);
+
+const SceneRecommendationsSchema = new Schema(
+  {
+    generatedAt: { type: Date, required: true },
+    // The run the transcript-derived items were computed against; null when
+    // the scene had never been simulated at generation time.
+    basedOnRunId: { type: String, default: null },
+    items: { type: [RecommendationSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const SceneSchema = new Schema(
   {
     actId: { type: Schema.Types.ObjectId, required: true },
@@ -69,6 +101,7 @@ const SceneSchema = new Schema(
     metrics: { type: DashboardMetricsSchema, default: null },
     modelAsset: { type: CharacterModelAssetSchema, default: null },
     keyframes: { type: [KeyframeSchema], default: [] },
+    recommendations: { type: SceneRecommendationsSchema, default: null },
   },
   { _id: true }
 );
