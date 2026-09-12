@@ -39,6 +39,31 @@ before anyone books a location.
    the blocking, not guessed by an LLM.
 8. **Inspect models** (`/model`) — drop a GLB/GLTF onto the inspector to
    check scale and animation clips before they go into a scene.
+9. **Get audience reactions** — every simulation run is automatically
+   critiqued by a panel of AI personas: four defaults (General Audience,
+   Genre Critic, Festival/Arthouse Critic, Casual Streaming Viewer) plus any
+   custom personas you add yourself from "Manage audience personas" (a name
+   plus the lens they judge from, e.g. "Teen Horror Fan — wants to be
+   scared, bored by slow builds, loves a twist"). Reviews show up alongside
+   the scene's metrics.
+10. **Get rewrite suggestions** — the scene page's "Improve" tab (next to
+    Metrics) runs a script-doctor pass that flags specific risks — e.g.
+    "Fragility risk is 76%" or "Engagement is 48%" — each tagged with a
+    severity and a category (dialogue, pacing, etc.) and paired with a
+    concrete, scene-specific rewrite suggestion. It notes when it was last
+    reviewed against the current take, and can be re-run on demand with
+    "Refresh recommendations."
+11. **Read the full metrics dashboard** — beyond the headline scores, the
+    Metrics tab plots an Emotional Tension Curve across the scene, reports
+    Scene Composition stats (estimated runtime, tension peaks, longest
+    single-character line run), and shows a Dialogue balance split — the
+    percentage of the scene each character carries.
+12. **Assign a set** — independently of character casting, each scene can
+    have its own Set Model (a GLB) picked from the library or uploaded,
+    shown on the scene page next to the scene summary and cast.
+13. **Compare past takes** — each scene keeps a history of its past
+    simulation runs (timestamp and line count), so you can go back and
+    compare how a take changed.
 
 ## Stack
 
