@@ -40,6 +40,7 @@ export interface Act {
 }
 
 export interface ScriptData {
+  id: string;
   title: string;
   acts: Act[];
   scenes: Scene[];

@@ -1,26 +1,33 @@
 // scene-workspace.tsx
 // Purpose: Center panel — selected scene's text, character roster, and the
-//          simulation actions available on it. Actions are disabled placeholders
-//          until the simulation engine API is wired up.
+//          simulation actions available on it. Scene title, tone, text, and
+//          cast are editable, correcting the AI structuring pass. Simulation
+//          actions are disabled placeholders until that engine is wired up.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
+import { useRouter } from "next/navigation";
 import { GitBranch, Sparkles, Users } from "lucide-react";
 
+import { CharacterEditDialog } from "@/components/character-edit-dialog";
+import { EditableField } from "@/components/editable-field";
+import { SceneCharactersDialog } from "@/components/scene-characters-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { patchScript } from "@/lib/scripts/patch-client";
 import type { Character, Scene } from "@/lib/types";
 
 interface SceneWorkspaceProps {
+  scriptId: string;
   scene: Scene;
   characters: Character[];
 }
@@ -47,10 +54,26 @@ function DisabledAction({
   );
 }
 
-export function SceneWorkspace({ scene, characters }: SceneWorkspaceProps) {
+export function SceneWorkspace({ scriptId, scene, characters }: SceneWorkspaceProps) {
+  const router = useRouter();
   const sceneCharacters = characters.filter((character) =>
     scene.characterIds.includes(character.id)
   );
+
+  async function saveTitle(next: string) {
+    await patchScript(scriptId, { type: "scene", id: scene.id, title: next });
+    router.refresh();
+  }
+
+  async function saveToneTarget(next: string) {
+    await patchScript(scriptId, { type: "scene", id: scene.id, toneTarget: next });
+    router.refresh();
+  }
+
+  async function saveText(next: string) {
+    await patchScript(scriptId, { type: "scene", id: scene.id, text: next });
+    router.refresh();
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -64,41 +87,63 @@ export function SceneWorkspace({ scene, characters }: SceneWorkspaceProps) {
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>{scene.title}</CardTitle>
+              <EditableField
+                label="scene title"
+                value={scene.title}
+                onSave={saveTitle}
+                className="font-heading text-base leading-none font-medium"
+              />
               <p className="text-muted-foreground mt-1 text-sm">
                 Scene {scene.order}
               </p>
             </div>
-            <Badge variant="secondary">{scene.toneTarget}</Badge>
+            <EditableField
+              label="tone target"
+              value={scene.toneTarget}
+              onSave={saveToneTarget}
+              displayClassName="shrink-0"
+              className="rounded-4xl bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
+            />
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="typeset typeset-docs max-w-[42em]">
-            <p>{scene.text}</p>
-          </div>
+          <EditableField
+            label="scene text"
+            value={scene.text}
+            onSave={saveText}
+            multiline
+            className="typeset typeset-docs max-w-[42em]"
+          />
 
           <Separator />
 
           <div>
-            <p className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
-              Characters in scene
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Characters in scene
+              </p>
+              <SceneCharactersDialog scriptId={scriptId} scene={scene} allCharacters={characters} />
+            </div>
             <div className="flex flex-wrap gap-2">
               {sceneCharacters.map((character) => (
-                <Tooltip key={character.id}>
-                  <TooltipTrigger
-                    render={
-                      <Badge variant="outline" className="gap-1.5 py-1">
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: character.color }}
-                        />
-                        {character.name}
-                      </Badge>
-                    }
-                  />
-                  <TooltipContent>{character.motivation}</TooltipContent>
-                </Tooltip>
+                <CharacterEditDialog
+                  key={character.id}
+                  scriptId={scriptId}
+                  character={character}
+                  trigger={
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer gap-1.5 py-1"
+                      render={<button type="button" title={character.motivation} />}
+                    >
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: character.color }}
+                      />
+                      {character.name}
+                    </Badge>
+                  }
+                />
               ))}
             </div>
           </div>

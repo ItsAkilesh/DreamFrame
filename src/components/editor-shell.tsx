@@ -74,7 +74,11 @@ export function EditorShell({ script }: EditorShellProps) {
           </div>
         ) : (
           <div className="flex flex-1 overflow-hidden">
-            <SceneWorkspace scene={selectedScene} characters={script.characters} />
+            <SceneWorkspace
+              scriptId={script.id}
+              scene={selectedScene}
+              characters={script.characters}
+            />
             <aside className="bg-sidebar w-80 shrink-0 overflow-y-auto border-l">
               <DashboardPanel scene={selectedScene} />
             </aside>

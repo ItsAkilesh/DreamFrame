@@ -5,14 +5,12 @@
 
 "use client";
 
+import { useMemo } from "react";
 import { Film, Users } from "lucide-react";
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { ActAccordionItem } from "@/components/act-accordion-item";
+import { CharacterEditDialog } from "@/components/character-edit-dialog";
+import { Accordion } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
 import {
@@ -22,9 +20,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import type { ScriptData } from "@/lib/types";
 
@@ -39,6 +34,15 @@ export function AppSidebar({
   selectedSceneId,
   onSelectScene,
 }: AppSidebarProps) {
+  // Stable array reference across re-renders of the same script — Base UI's
+  // Accordion warns if an uncontrolled defaultValue's *reference* changes
+  // after mount, and `.map()` would otherwise allocate a new array on every
+  // render (e.g. every time a different scene is selected).
+  const actIds = useMemo(
+    () => script?.acts.map((act) => act.id) ?? [],
+    [script]
+  );
+
   return (
     <Sidebar>
       <SidebarHeader className="gap-3 px-3 py-3">
@@ -60,8 +64,9 @@ export function AppSidebar({
               <SidebarGroupLabel>{script.title}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <Accordion
+                  key={script.id}
                   multiple
-                  defaultValue={script.acts.map((act) => act.id)}
+                  defaultValue={actIds}
                   className="px-1"
                 >
                   {script.acts
@@ -73,27 +78,14 @@ export function AppSidebar({
                         .sort((a, b) => a.order - b.order);
 
                       return (
-                        <AccordionItem key={act.id} value={act.id}>
-                          <AccordionTrigger className="text-sm font-medium">
-                            {act.title}
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <SidebarMenu>
-                              {scenes.map((scene) => (
-                                <SidebarMenuItem key={scene.id}>
-                                  <SidebarMenuButton
-                                    isActive={scene.id === selectedSceneId}
-                                    onClick={() => onSelectScene(scene.id)}
-                                  >
-                                    <span className="truncate">
-                                      {scene.order}. {scene.title}
-                                    </span>
-                                  </SidebarMenuButton>
-                                </SidebarMenuItem>
-                              ))}
-                            </SidebarMenu>
-                          </AccordionContent>
-                        </AccordionItem>
+                        <ActAccordionItem
+                          key={act.id}
+                          scriptId={script.id}
+                          act={act}
+                          scenes={scenes}
+                          selectedSceneId={selectedSceneId}
+                          onSelectScene={onSelectScene}
+                        />
                       );
                     })}
                 </Accordion>
@@ -107,19 +99,27 @@ export function AppSidebar({
               </SidebarGroupLabel>
               <SidebarGroupContent className="flex flex-col gap-1.5 px-2">
                 {script.characters.map((character) => (
-                  <div
+                  <CharacterEditDialog
                     key={character.id}
-                    className="flex items-center gap-2 rounded-md px-1 py-1 text-sm"
-                  >
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: character.color }}
-                    />
-                    <span className="truncate">{character.name}</span>
-                    <Badge variant="secondary" className="ml-auto text-[10px]">
-                      {character.baselineEmotion}
-                    </Badge>
-                  </div>
+                    scriptId={script.id}
+                    character={character}
+                    trigger={
+                      <button
+                        type="button"
+                        title={character.motivation}
+                        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm hover:bg-sidebar-accent"
+                      >
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: character.color }}
+                        />
+                        <span className="truncate">{character.name}</span>
+                        <Badge variant="secondary" className="ml-auto text-[10px]">
+                          {character.baselineEmotion}
+                        </Badge>
+                      </button>
+                    }
+                  />
                 ))}
               </SidebarGroupContent>
             </SidebarGroup>

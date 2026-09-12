@@ -17,6 +17,7 @@ export async function getCurrentScript(): Promise<ScriptData | null> {
   await connectToDatabase();
 
   type LeanScript = {
+    _id: { toString(): string };
     title: string;
     acts: (LeanId & { title: string; order: number })[];
     characters: (LeanId & {
@@ -71,5 +72,5 @@ export async function getCurrentScript(): Promise<ScriptData | null> {
     metrics: scene.metrics,
   }));
 
-  return { title: doc.title, acts, characters, scenes };
+  return { id: doc._id.toString(), title: doc.title, acts, characters, scenes };
 }
