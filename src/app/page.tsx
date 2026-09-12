@@ -1,12 +1,15 @@
 // page.tsx
-// Purpose: Default editor view — renders the EditorShell against mock script data
-//          until script upload and the simulation engine are wired to real APIs.
+// Purpose: Default editor view — loads the current script from MongoDB and
+//          renders the EditorShell (or its empty/upload state if none exists).
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 import { EditorShell } from "@/components/editor-shell";
-import { mockScript } from "@/lib/mock-data";
+import { getCurrentScript } from "@/lib/get-current-script";
 
-export default function Home() {
-  return <EditorShell script={mockScript} />;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const script = await getCurrentScript();
+  return <EditorShell script={script} />;
 }
