@@ -41,6 +41,7 @@ import {
 } from "@/lib/character-model-formats";
 import { CharacterFigure, type StageCharacterModelAsset } from "@/render/CharacterFigure";
 import { resolvePose } from "@/render/blocking";
+import type { GizmoMode } from "@/render/gizmoKeys";
 import type { Pose } from "@/render/keyframes";
 import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
 import { SceneEnvironment } from "@/render/SceneEnvironment";
@@ -50,7 +51,9 @@ import { useLabeledAnimations } from "@/render/useLabeledAnimations";
 import { CIRCLE_RADIUS as BAKED_CIRCLE_RADIUS } from "@/schema/fromScene";
 import type { PrevisSpec } from "@/schema/previsSpec";
 
-export type GizmoMode = "translate" | "rotate";
+// Defined with the keyboard bindings (render/gizmoKeys.ts) and re-exported
+// here, where every caller already imports it from.
+export type { GizmoMode } from "@/render/gizmoKeys";
 
 interface StageSceneModelAsset {
   url: string;

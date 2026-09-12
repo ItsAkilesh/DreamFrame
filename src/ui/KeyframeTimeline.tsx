@@ -404,8 +404,13 @@ export function KeyframeTimeline({
 
       <p className="text-muted-foreground border-t px-3 py-1.5 text-[11px]">
         <Diamond className="mr-1 inline size-3 -translate-y-px" />
-        Pick a character, scrub to a timestamp, then drag them on stage — the pose is keyframed
-        there. Double-click a track to key the current pose; drag a diamond to retime it.
+        Pick a character, scrub to a timestamp, then drag them on stage — or move with{" "}
+        <kbd className="bg-muted rounded px-1">W A S D</kbd> /{" "}
+        <kbd className="bg-muted rounded px-1">↑ ↓ ← →</kbd> and turn with{" "}
+        <kbd className="bg-muted rounded px-1">Q</kbd> <kbd className="bg-muted rounded px-1">E</kbd>{" "}
+        (<kbd className="bg-muted rounded px-1">Shift</kbd> bigger,{" "}
+        <kbd className="bg-muted rounded px-1">Alt</kbd> finer). Double-click a track to key the
+        current pose; drag a diamond to retime it.
       </p>
     </div>
   );
