@@ -316,6 +316,7 @@ describe("latestRunForScene", () => {
     sceneId,
     transcript: [],
     createdAt,
+    audienceReview: null,
   });
 
   it("picks the most recent run for the scene, ignoring other scenes", () => {
