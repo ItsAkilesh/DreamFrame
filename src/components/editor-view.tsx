@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ArrowLeft, Move, RotateCw } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -190,13 +191,13 @@ export function EditorView({
   return (
     <div className="flex h-svh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-        <a
+        <Link
           href="/"
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-2")}
         >
           <ArrowLeft className="size-4" />
           Back to Dashboard
-        </a>
+        </Link>
         <span className="text-muted-foreground text-sm">{spec.scene.slugline}</span>
         {persistable && saveState !== "idle" && (
           <span

@@ -88,6 +88,7 @@ type LeanScript = {
       text: string;
       turnIndex: number;
       action: string;
+      voiceDirection?: string | null;
       animationAssetId: string | null;
     }[];
     audienceReview?: AudienceReview | null;

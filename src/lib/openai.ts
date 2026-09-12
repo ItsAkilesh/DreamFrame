@@ -1,5 +1,5 @@
 // openai.ts
-// Purpose: Shared OpenAI client instance.
+// Purpose: Structured-output runtime used by src/lib/gemini.ts.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 

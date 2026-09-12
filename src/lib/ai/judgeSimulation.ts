@@ -10,7 +10,7 @@
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { openai, SIMULATION_MODEL } from "@/lib/openai";
+import { gemini, SIMULATION_MODEL } from "@/lib/gemini";
 import type { Character, DashboardMetrics } from "@/lib/types";
 
 const MIN_SCORE = 0;
@@ -57,7 +57,7 @@ Score this simulated performance of the scene, 0-100 on each axis:
 }
 
 export async function judgeSimulation(options: JudgeSimulationOptions): Promise<DashboardMetrics> {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       {

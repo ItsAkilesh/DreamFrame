@@ -5,6 +5,8 @@
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
+import Link from "next/link";
+
 import { EditorView } from "@/components/editor-view";
 import { getScriptById } from "@/lib/get-current-script";
 import { fromScene } from "@/schema/fromScene";
@@ -30,9 +32,9 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex h-svh flex-col items-center justify-center gap-3 text-center">
       <p className="font-medium">{message}</p>
-      <a href="/" className="text-primary text-sm underline underline-offset-4">
+      <Link href="/" className="text-primary text-sm underline underline-offset-4">
         Back to Dashboard
-      </a>
+      </Link>
     </div>
   );
 }

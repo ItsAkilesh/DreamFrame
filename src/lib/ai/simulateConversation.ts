@@ -31,7 +31,7 @@ import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
 import { loadLabeledAnimations } from "@/lib/animation-match";
-import { openai, SIMULATION_MODEL } from "@/lib/openai";
+import { gemini, SIMULATION_MODEL } from "@/lib/gemini";
 import type { Character } from "@/lib/types";
 import { VOICE_DIRECTIONS } from "@/lib/voice/emotional-delivery";
 
@@ -179,7 +179,7 @@ async function think(
   scene: SimulateConversationOptions["scene"],
   emoteNames: string[]
 ) {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       { role: "system", content: buildSystemPrompt(agent, others, scene, emoteNames) },

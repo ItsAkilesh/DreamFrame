@@ -12,7 +12,7 @@
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { openai, SIMULATION_MODEL } from "@/lib/openai";
+import { gemini, SIMULATION_MODEL } from "@/lib/gemini";
 import type { AudienceCritique, AudiencePersona, AudienceReview, Character } from "@/lib/types";
 
 // Always active, on every script, alongside whatever custom personas the
@@ -77,7 +77,7 @@ async function critiqueAsPersona(
   scene: AudienceReviewOptions["scene"],
   transcriptBlock: string
 ): Promise<AudienceCritique> {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       {
@@ -109,7 +109,7 @@ async function moderateCritiques(
     .map((c) => `${c.personaName}:\n${c.critique}`)
     .join("\n\n");
 
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       {

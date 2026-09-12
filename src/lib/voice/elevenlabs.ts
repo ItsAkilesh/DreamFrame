@@ -1,8 +1,8 @@
 // elevenlabs.ts
 // Purpose: Server-only ElevenLabs text-to-speech client. The API key never
 //          reaches the browser — src/app/api/tts/route.ts is the only
-//          caller, proxying synthesis requests the same way src/lib/openai.ts
-//          proxies OpenAI. Plain fetch, no SDK: this is one REST call, and
+//          caller, proxying synthesis requests the same way src/lib/gemini.ts
+//          proxies Gemini. Plain fetch, no SDK: this is one REST call, and
 //          adding a dependency for it would just be a CVE surface for
 //          nothing a native fetch can't already do.
 // Author: akilesh@vigilnz.com
@@ -13,7 +13,7 @@ import { join } from "node:path";
 
 import { buildExpressiveSpeechText, type EmotionalDeliveryContext } from "@/lib/voice/emotional-delivery";
 
-// Same reasoning as src/lib/openai.ts's getOpenAIApiKey(): prefer .env.local
+// Same reasoning as src/lib/gemini.ts's getGeminiApiKey(): prefer .env.local
 // over the ambient process env so a stale OS-level env var can't silently
 // shadow the real local key.
 function getElevenLabsApiKey(): string {

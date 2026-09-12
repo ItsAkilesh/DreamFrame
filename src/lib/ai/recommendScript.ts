@@ -18,7 +18,7 @@
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { openai, SIMULATION_MODEL } from "@/lib/openai";
+import { gemini, SIMULATION_MODEL } from "@/lib/gemini";
 import type {
   Character,
   DashboardMetrics,
@@ -131,7 +131,7 @@ ${detectedText || "(none)"}`;
 export async function recommendScript(
   options: RecommendScriptOptions
 ): Promise<Recommendation[]> {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       { role: "system", content: SYSTEM_PROMPT },

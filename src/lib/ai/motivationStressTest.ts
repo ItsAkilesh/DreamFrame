@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { openai, SIMULATION_MODEL } from "@/lib/openai";
+import { gemini, SIMULATION_MODEL } from "@/lib/gemini";
 import type { Character } from "@/lib/types";
 
 const StressTestResultSchema = z.object({
@@ -30,7 +30,7 @@ export interface MotivationStressTestOptions {
   scene: { title: string; text: string; toneTarget: string };
   character: Character;
   pressureScenario: string;
-  // Lets a cancelled request actually stop the upstream OpenAI call instead
+  // Lets a cancelled request actually stop the upstream Gemini call instead
   // of just abandoning the response on the client — passed straight through
   // to the SDK, which aborts the underlying fetch.
   signal?: AbortSignal;
@@ -42,7 +42,7 @@ export async function runMotivationStressTest({
   pressureScenario,
   signal,
 }: MotivationStressTestOptions): Promise<StressTestResult> {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SIMULATION_MODEL,
     input: [
       {

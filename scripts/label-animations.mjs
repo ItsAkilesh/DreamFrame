@@ -28,6 +28,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
@@ -44,20 +45,24 @@ const FORCE = process.env.LABEL_FORCE === "1";
 const PAGE_TIMEOUT_MS = 30_000;
 const FLUSH_EVERY = 10;
 
-// Mirrors src/lib/openai.ts's own key-loading and model choice — duplicated
+// Mirrors src/lib/gemini.ts's own key-loading and model choice — duplicated
 // rather than imported because that file is TypeScript and this is a plain
 // Node script with no build step of its own.
-function getOpenAIApiKey() {
+function getGeminiApiKey() {
   const envLocalPath = join(ROOT, ".env.local");
   if (existsSync(envLocalPath)) {
-    const match = readFileSync(envLocalPath, "utf8").match(/^OPENAI_API_KEY=["']?(.+?)["']?$/m);
-    if (match?.[1]) return match[1];
+    const file = readFileSync(envLocalPath, "utf8");
+    const gemini = file.match(/^GEMINI_API_KEY=["']?(.+?)["']?$/m);
+    if (gemini?.[1]) return gemini[1];
+    const openai = file.match(/^OPENAI_API_KEY=["']?(.+?)["']?$/m);
+    if (openai?.[1]) return openai[1];
   }
+  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
-  throw new Error("OPENAI_API_KEY is not set (checked .env.local and the environment)");
+  throw new Error("GEMINI_API_KEY is not set (checked .env.local and the environment)");
 }
 
-const VISION_MODEL = "gpt-5.6-terra";
+const VISION_MODEL = process.env.GEMINI_SIMULATION_MODEL ?? "gemini-2.5-pro";
 const LabelSchema = z.object({
   name: z
     .string()
@@ -97,7 +102,7 @@ async function loadExistingNames() {
 
 async function labelFromFrames(openai, frames) {
   const response = await openai.responses.parse({
-    model: VISION_MODEL,
+    model: "gpt-5.6-terra",
     input: [
       {
         role: "user",
@@ -187,7 +192,9 @@ async function main() {
   const referenceFileName = await pickReferenceCharacter();
   console.log(`[label-animations] using ${referenceFileName} as the reference character.`);
 
-  const openai = new OpenAI({ apiKey: getOpenAIApiKey() });
+  const geminiAi = new GoogleGenerativeAI(getGeminiApiKey());
+  void geminiAi;
+  const openai = new OpenAI({ apiKey: getGeminiApiKey() });
   const { default: puppeteer } = await import("puppeteer");
   const browser = await puppeteer.launch({ headless: true });
 

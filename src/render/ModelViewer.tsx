@@ -11,6 +11,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
@@ -474,7 +475,7 @@ export function ModelViewer() {
       }}
     >
       <div style={PANEL}>
-        <a
+        <Link
           href="/"
           style={{
             display: "inline-flex",
@@ -487,7 +488,7 @@ export function ModelViewer() {
           }}
         >
           <span aria-hidden="true">←</span> Back to Dashboard
-        </a>
+        </Link>
 
         <strong style={{ display: "block", fontSize: 14 }}>GLB inspector</strong>
         <p style={{ color: "#8b8f99", margin: "4px 0 0" }}>Drop a file anywhere, or load one below.</p>

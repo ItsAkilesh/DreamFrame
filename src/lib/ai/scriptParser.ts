@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { openai, SCRIPT_PARSER_MODEL } from "@/lib/openai";
+import { gemini, SCRIPT_PARSER_MODEL } from "@/lib/gemini";
 
 const MAX_ACTS = 6;
 const MAX_SCENES = 24;
@@ -54,7 +54,7 @@ Rules:
 - If the input is short or unstructured, do your best to infer a reasonable Act/Scene breakdown rather than refusing.`;
 
 export async function parseScriptWithAI(rawText: string): Promise<ParsedScript> {
-  const response = await openai.responses.parse({
+  const response = await gemini.responses.parse({
     model: SCRIPT_PARSER_MODEL,
     input: [
       { role: "system", content: SYSTEM_PROMPT },
