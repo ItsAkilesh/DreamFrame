@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { AnimationMixer, Texture, TextureLoader } from "three";
 import { FBXLoader } from "three-stdlib";
 import { describe, it, expect, vi } from "vitest";
@@ -9,7 +9,27 @@ function load(path: string) {
   return new FBXLoader().parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), "");
 }
 
-describe("real Mixamo FBX playback", () => {
+// These read real Mixamo exports from public/assets/library/, which
+// .gitignore excludes as "dropped in locally, not source". Without them the
+// suite was red for every teammate and every CI run, which trains people to
+// ignore a failing test. Skip instead, and say why.
+const CHARACTER_IDS = [
+  "0510032b674ce33343c2e058ef52e8c5",
+  "06caf212ded22a78500c06ebf372c9bb",
+  "08f7e724f32af241e56a9244c2f37b43",
+];
+const ANIMATION_ID = "00041fd3325430d72c5a947e1171de3b";
+const LIBRARY_PRESENT =
+  CHARACTER_IDS.every((id) => existsSync(`public/assets/library/characters/${id}.fbx`)) &&
+  existsSync(`public/assets/library/animations/${ANIMATION_ID}.fbx`);
+
+if (!LIBRARY_PRESENT) {
+  console.warn(
+    "mixamo-assets: skipping — public/assets/library/ is gitignored and not present locally."
+  );
+}
+
+describe.skipIf(!LIBRARY_PRESENT)("real Mixamo FBX playback", () => {
   it.each([
     "0510032b674ce33343c2e058ef52e8c5",
     "06caf212ded22a78500c06ebf372c9bb",
