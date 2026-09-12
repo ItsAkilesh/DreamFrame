@@ -8,21 +8,29 @@
 //          their placeholder cleanly on any load failure. Props remain
 //          placeholder boxes; that's still open. Must never throw on a
 //          partial spec.
+//
+//          Also the keyframe authoring surface: click a character to select
+//          it, drag its gizmo, and the Editor View writes the resulting pose
+//          as a keyframe at the playhead's timestamp.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
+import { useEffect, useRef, useState } from "react";
+import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { PCFShadowMap } from "three";
+import { PCFShadowMap, type Group, type Object3D } from "three";
 
 import { PROP_DIMENSIONS } from "@/assets/manifest";
 import { isPreviewableCharacterModelFormat } from "@/lib/character-model-formats";
 import { CharacterFigure, type StageCharacterModelAsset } from "@/render/CharacterFigure";
 import { resolvePose } from "@/render/blocking";
 import { SceneEnvironment } from "@/render/SceneEnvironment";
+import type { Pose } from "@/render/keyframes";
 import type { PrevisSpec } from "@/schema/previsSpec";
+
+export type GizmoMode = "translate" | "rotate";
 
 interface StageSceneModelAsset {
   url: string;
@@ -38,6 +46,11 @@ interface StageProps {
   // (each character's own uploaded/library model), not part of the PrevisSpec
   // contract, same reasoning as sceneModelAsset above.
   characterModels?: Record<string, StageCharacterModelAsset | null | undefined>;
+  selectedCharacterId?: string | null;
+  /** Omit to keep the stage read-only (no selection, no gizmo). */
+  onSelectCharacter?: (characterId: string | null) => void;
+  onPoseCommit?: (characterId: string, pose: Pose) => void;
+  gizmoMode?: GizmoMode;
 }
 
 function Room({ dimensions }: { dimensions: { w: number; d: number; h: number } }) {
@@ -89,13 +102,30 @@ function StageCharacter({
   spec,
   modelAsset,
   highlighted,
+  selected,
+  onSelect,
+  onTarget,
 }: {
   character: PrevisSpec["cast"][number];
   time: number;
   spec: PrevisSpec;
   modelAsset?: StageCharacterModelAsset | null;
   highlighted: boolean;
+  selected: boolean;
+  onSelect?: (characterId: string) => void;
+  onTarget?: (object: Object3D | null) => void;
 }) {
+  const groupRef = useRef<Group>(null);
+
+  // Hand the selected character's group up to the Stage so the single
+  // TransformControls can attach to it — the gizmo has to live outside the
+  // group it moves, or it would drag itself.
+  useEffect(() => {
+    if (!selected) return;
+    onTarget?.(groupRef.current);
+    return () => onTarget?.(null);
+  }, [selected, onTarget]);
+
   let pose;
   try {
     pose = resolvePose(spec, character.id, time);
@@ -105,13 +135,33 @@ function StageCharacter({
   }
 
   return (
-    <CharacterFigure
-      modelAsset={modelAsset}
-      position={pose.position}
-      rotationY={pose.rotationY}
-      color={character.color}
-      highlighted={highlighted}
-    />
+    <group
+      ref={groupRef}
+      position={[pose.position[0], 0, pose.position[2]]}
+      rotation={[0, pose.rotationY, 0]}
+      onClick={(event) => {
+        if (!onSelect) return;
+        event.stopPropagation();
+        onSelect(character.id);
+      }}
+    >
+      {/* The figure sits at the group's origin: the group carries the pose, so
+          TransformControls has a single object to move. CharacterFigure draws
+          its own highlight, so only the selection ring is added here. */}
+      <CharacterFigure
+        modelAsset={modelAsset}
+        position={[0, 0, 0]}
+        rotationY={0}
+        color={character.color}
+        highlighted={highlighted}
+      />
+      {selected && (
+        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.33, 0.43, 32]} />
+          <meshBasicMaterial color="#22d3ee" />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -183,9 +233,25 @@ export function Stage({
   highlightedCharacterIds = [],
   sceneModelAsset,
   characterModels,
+  selectedCharacterId = null,
+  onSelectCharacter,
+  onPoseCommit,
+  gizmoMode = "translate",
 }: StageProps) {
   const { w, d } = spec.set.dimensions;
   const camDistance = Math.max(w, d) * 1.3;
+  const [target, setTarget] = useState<Object3D | null>(null);
+
+  // Read the pose straight off the dragged group: the gizmo mutates the
+  // object directly, so this is the only place the new pose exists until it
+  // becomes a keyframe.
+  function commitPose() {
+    if (!target || !selectedCharacterId || !onPoseCommit) return;
+    onPoseCommit(selectedCharacterId, {
+      position: [target.position.x, 0, target.position.z],
+      rotationY: target.rotation.y,
+    });
+  }
 
   const canRenderSceneModel =
     sceneModelAsset != null && isPreviewableCharacterModelFormat(sceneModelAsset.format);
@@ -194,6 +260,7 @@ export function Stage({
     <Canvas
       shadows={{ type: PCFShadowMap }}
       camera={{ position: [0, camDistance * 0.5, camDistance], fov: 50 }}
+      onPointerMissed={() => onSelectCharacter?.(null)}
     >
       <ThreePointLights lights={spec.set.lights} />
       {canRenderSceneModel ? (
@@ -216,9 +283,28 @@ export function Stage({
           spec={spec}
           modelAsset={characterModels?.[character.id]}
           highlighted={highlightedCharacterIds.includes(character.id)}
+          selected={character.id === selectedCharacterId}
+          onSelect={onSelectCharacter}
+          onTarget={setTarget}
         />
       ))}
-      <OrbitControls target={[0, 1.2, 0]} />
+      {target && onPoseCommit && (
+        <TransformControls
+          object={target}
+          mode={gizmoMode}
+          // Characters stay on the floor, and only turn about Y — the axes
+          // that would break that are hidden rather than merely discouraged.
+          showX={gizmoMode === "translate"}
+          showZ={gizmoMode === "translate"}
+          showY={gizmoMode === "rotate"}
+          translationSnap={0.05}
+          rotationSnap={Math.PI / 36}
+          size={0.7}
+          onMouseUp={commitPose}
+        />
+      )}
+      {/* makeDefault lets TransformControls suspend orbiting mid-drag. */}
+      <OrbitControls makeDefault target={[0, 1.2, 0]} />
     </Canvas>
   );
 }

@@ -4,9 +4,13 @@
 //          blocking cues as linear interpolations. This is a minimal
 //          placeholder driver for the Editor View's Timeline — full
 //          crossfaded-clip playback (M1) is a separate, later milestone.
+//
+//          A character with hand-placed keyframes (Editor View timeline) is
+//          driven by that track instead — see render/keyframes.ts.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
+import { keyframesFor, sampleKeyframeTrack } from "@/render/keyframes";
 import type { PrevisSpec } from "@/schema/previsSpec";
 
 export interface ResolvedPose {
@@ -19,6 +23,11 @@ export function resolvePose(spec: PrevisSpec, characterId: string, time: number)
   if (!cast) {
     throw new Error(`resolvePose: no such character "${characterId}"`);
   }
+
+  // A keyframe track is an explicit authoring decision, so it wins outright
+  // over the beats' inferred blocking rather than compositing with it.
+  const track = keyframesFor(spec, characterId);
+  if (track.length > 0) return sampleKeyframeTrack(track, time);
 
   let position: [number, number, number] = [...cast.position];
   let rotationY = cast.rotationY;
@@ -60,6 +69,8 @@ export function activeBeat(spec: PrevisSpec, time: number) {
   return beats.find((b) => time >= b.startTime && time < b.startTime + b.duration) ?? beats[beats.length - 1];
 }
 
+/** Scene length: the last beat's end, extended if a keyframe sits past it. */
 export function specDuration(spec: PrevisSpec): number {
-  return spec.beats.reduce((max, b) => Math.max(max, b.startTime + b.duration), 0);
+  const beatEnd = spec.beats.reduce((max, b) => Math.max(max, b.startTime + b.duration), 0);
+  return spec.keyframes.reduce((max, k) => Math.max(max, k.time), beatEnd);
 }
