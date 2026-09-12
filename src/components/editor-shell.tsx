@@ -54,8 +54,8 @@ function NoScriptUploaded() {
       </div>
       <ScriptUploadDialog />
 
-      <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
-        <span>or look at the 3D view with a demo scene</span>
+      <div className="text-muted-foreground mt-2 text-sm">
+        <span>or open the 3D viewer</span>
       </div>
       <div className="flex gap-2">
         <Button
@@ -63,20 +63,20 @@ function NoScriptUploaded() {
           size="sm"
           className="gap-2"
           nativeButton={false}
-          render={<Link href="/editor?fixture=office" />}
+          render={<Link href="/model" />}
         >
-          <Clapperboard className="size-4" />
-          3D View — demo scene
+          <Box className="size-4" />
+          3D Viewer
         </Button>
         <Button
           variant="ghost"
           size="sm"
           className="gap-2"
           nativeButton={false}
-          render={<Link href="/model" />}
+          render={<Link href="/editor?fixture=office" />}
         >
-          <Box className="size-4" />
-          Asset inspector
+          <Clapperboard className="size-4" />
+          Scene editor — demo scene
         </Button>
       </div>
     </div>

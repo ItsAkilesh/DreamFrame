@@ -60,13 +60,13 @@ export function AppSidebar({
     [script]
   );
 
-  // Open the selected scene when there is one; otherwise the bundled demo
-  // scene, so the 3D view is never a dead end.
+  // The scene editor opens the selected scene when there is one, otherwise the
+  // bundled demo scene, so it is never a dead end.
   const hasScene = Boolean(script && selectedSceneId);
   const sceneHref = hasScene
     ? `/editor?scriptId=${script!.id}&sceneId=${selectedSceneId}`
     : "/editor?fixture=office";
-  const sceneLabel = hasScene ? "3D View — this scene" : "3D View — demo scene";
+  const sceneLabel = hasScene ? "Scene editor — this scene" : "Scene editor — demo scene";
 
   return (
     <Sidebar>
@@ -195,18 +195,18 @@ export function AppSidebar({
           </SidebarGroupLabel>
           <SidebarGroupContent className="flex flex-col gap-1.5 px-2">
             <Link
+              href="/model"
+              className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-medium hover:bg-sidebar-accent"
+            >
+              <Box className="size-3.5 shrink-0" />
+              <span className="truncate">3D Viewer</span>
+            </Link>
+            <Link
               href={sceneHref}
               className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm hover:bg-sidebar-accent"
             >
               <Clapperboard className="size-3.5 shrink-0" />
               <span className="truncate">{sceneLabel}</span>
-            </Link>
-            <Link
-              href="/model"
-              className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-sm hover:bg-sidebar-accent"
-            >
-              <Box className="size-3.5 shrink-0" />
-              <span className="truncate">Asset inspector</span>
             </Link>
           </SidebarGroupContent>
         </SidebarGroup>
