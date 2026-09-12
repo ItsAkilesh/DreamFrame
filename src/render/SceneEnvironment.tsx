@@ -20,10 +20,9 @@ import { Component, Suspense, useEffect, useState, type ReactNode } from "react"
 import { useFBX, useGLTF } from "@react-three/drei";
 import { Box3, Group, Vector3, type Object3D } from "three";
 
-export interface RoomFootprint {
-  width: number; // X extent, metres
-  depth: number; // Z extent, metres
-}
+import type { RoomFootprint } from "@/render/roomFit";
+
+export type { RoomFootprint } from "@/render/roomFit";
 
 interface SceneEnvironmentProps {
   url: string;

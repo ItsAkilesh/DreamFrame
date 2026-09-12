@@ -12,22 +12,40 @@
 //          Also the keyframe authoring surface: click a character to select
 //          it, drag its gizmo, and the Editor View writes the resulting pose
 //          as a keyframe at the playhead's timestamp.
+//
+//          fromScene.ts bakes cast positions into a fixed-radius circle
+//          (CIRCLE_RADIUS) before any environment model has loaded — it runs
+//          server-side. Once SceneEnvironment measures the actual model, this
+//          rescales that baked circle to the real room's proportions instead
+//          of leaving characters walking through furniture sized for a
+//          different room (mirrors simulation-stage.tsx's onMeasured
+//          handling). Everyone also gets a shared idle clip instead of
+//          sitting in raw bind pose (a T-pose on these rigs) — see
+//          useIdleAnimationAsset.ts. The gizmo drag/commit path divides the
+//          scale back out so a keyframe is always recorded in the spec's
+//          real coordinates, never the room-rescaled display position.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { OrbitControls, TransformControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap, type Group, type Object3D } from "three";
 
 import { PROP_DIMENSIONS } from "@/assets/manifest";
-import { isPreviewableCharacterModelFormat } from "@/lib/character-model-formats";
+import {
+  characterModelFormatFromFileName,
+  isPreviewableCharacterModelFormat,
+} from "@/lib/character-model-formats";
 import { CharacterFigure, type StageCharacterModelAsset } from "@/render/CharacterFigure";
 import { resolvePose } from "@/render/blocking";
-import { SceneEnvironment } from "@/render/SceneEnvironment";
 import type { Pose } from "@/render/keyframes";
+import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
+import { SceneEnvironment } from "@/render/SceneEnvironment";
+import { useIdleAnimationAssetId } from "@/render/useIdleAnimationAsset";
+import { CIRCLE_RADIUS as BAKED_CIRCLE_RADIUS } from "@/schema/fromScene";
 import type { PrevisSpec } from "@/schema/previsSpec";
 
 export type GizmoMode = "translate" | "rotate";
@@ -101,6 +119,8 @@ function StageCharacter({
   time,
   spec,
   modelAsset,
+  animationAsset,
+  placementScale,
   highlighted,
   selected,
   onSelect,
@@ -110,6 +130,8 @@ function StageCharacter({
   time: number;
   spec: PrevisSpec;
   modelAsset?: StageCharacterModelAsset | null;
+  animationAsset?: StageCharacterModelAsset | null;
+  placementScale: number;
   highlighted: boolean;
   selected: boolean;
   onSelect?: (characterId: string) => void;
@@ -134,10 +156,13 @@ function StageCharacter({
     pose = { position: character.position, rotationY: character.rotationY };
   }
 
+  const [x, , z] = pose.position;
+  const position: [number, number, number] = [x * placementScale, 0, z * placementScale];
+
   return (
     <group
       ref={groupRef}
-      position={[pose.position[0], 0, pose.position[2]]}
+      position={position}
       rotation={[0, pose.rotationY, 0]}
       onClick={(event) => {
         if (!onSelect) return;
@@ -150,6 +175,7 @@ function StageCharacter({
           its own highlight, so only the selection ring is added here. */}
       <CharacterFigure
         modelAsset={modelAsset}
+        animationAsset={animationAsset}
         position={[0, 0, 0]}
         rotationY={0}
         color={character.color}
@@ -239,22 +265,46 @@ export function Stage({
   gizmoMode = "translate",
 }: StageProps) {
   const { w, d } = spec.set.dimensions;
-  const camDistance = Math.max(w, d) * 1.3;
   const [target, setTarget] = useState<Object3D | null>(null);
-
-  // Read the pose straight off the dragged group: the gizmo mutates the
-  // object directly, so this is the only place the new pose exists until it
-  // becomes a keyframe.
-  function commitPose() {
-    if (!target || !selectedCharacterId || !onPoseCommit) return;
-    onPoseCommit(selectedCharacterId, {
-      position: [target.position.x, 0, target.position.z],
-      rotationY: target.rotation.y,
-    });
-  }
+  const [footprint, setFootprint] = useState<RoomFootprint>(DEFAULT_FOOTPRINT);
+  const idleAssetId = useIdleAnimationAssetId();
 
   const canRenderSceneModel =
     sceneModelAsset != null && isPreviewableCharacterModelFormat(sceneModelAsset.format);
+
+  // The cast's circle is baked in server-side (fromScene.ts, before any model
+  // has loaded) at a fixed radius. Once the real room is measured, rescale
+  // that circle to fit it instead of leaving characters sized for a
+  // different room and colliding with its furniture.
+  const placementScale = useMemo(() => {
+    if (!canRenderSceneModel) return 1;
+    return circleRadiusFor(footprint) / BAKED_CIRCLE_RADIUS;
+  }, [canRenderSceneModel, footprint]);
+
+  const camDistance = canRenderSceneModel
+    ? circleRadiusFor(footprint) * 2 + 2
+    : Math.max(w, d) * 1.3;
+
+  const idleAnimationAsset: StageCharacterModelAsset | null = idleAssetId
+    ? {
+        url: `/assets/library/animations/${idleAssetId}`,
+        format: characterModelFormatFromFileName(idleAssetId) ?? "fbx",
+      }
+    : null;
+
+  // Read the pose straight off the dragged group: the gizmo mutates the
+  // object directly, so this is the only place the new pose exists until it
+  // becomes a keyframe. Divide placementScale back out so the stored
+  // keyframe is in the spec's real coordinates, not the room-rescaled
+  // display position — resolvePose reapplies placementScale on every render,
+  // so baking it into the keyframe too would double it up.
+  function commitPose() {
+    if (!target || !selectedCharacterId || !onPoseCommit) return;
+    onPoseCommit(selectedCharacterId, {
+      position: [target.position.x / placementScale, 0, target.position.z / placementScale],
+      rotationY: target.rotation.y,
+    });
+  }
 
   return (
     <Canvas
@@ -268,6 +318,7 @@ export function Stage({
           url={sceneModelAsset.url}
           format={sceneModelAsset.format}
           fallback={<Room dimensions={spec.set.dimensions} />}
+          onMeasured={setFootprint}
         />
       ) : (
         <Room dimensions={spec.set.dimensions} />
@@ -282,6 +333,8 @@ export function Stage({
           time={time}
           spec={spec}
           modelAsset={characterModels?.[character.id]}
+          animationAsset={idleAnimationAsset}
+          placementScale={placementScale}
           highlighted={highlightedCharacterIds.includes(character.id)}
           selected={character.id === selectedCharacterId}
           onSelect={onSelectCharacter}

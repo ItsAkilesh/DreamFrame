@@ -18,7 +18,6 @@ import { EditableField } from "@/components/editable-field";
 import { SceneCharactersDialog } from "@/components/scene-characters-dialog";
 import { SceneModelUpload } from "@/components/scene-model-upload";
 import { ScenePlayer } from "@/components/scene-player";
-import { SimulationDialog } from "@/components/simulation-dialog";
 import { SimulationRunList } from "@/components/simulation-run-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,7 +90,9 @@ export function SceneWorkspace({
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      {showScene && <ScenePlayer scene={scene} characters={sceneCharacters} />}
+      {showScene && (
+        <ScenePlayer scriptId={scriptId} scene={scene} characters={sceneCharacters} />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -103,7 +104,6 @@ export function SceneWorkspace({
           <Clapperboard className="size-4" />
           Show Scene
         </Button>
-        <SimulationDialog scriptId={scriptId} scene={scene} characters={sceneCharacters} />
         <DisabledAction icon={Sparkles} label="Motivation Stress Test" />
         <DisabledAction icon={Users} label="Chemistry Simulator" />
       </div>

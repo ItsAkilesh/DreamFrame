@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
@@ -25,7 +25,8 @@ import { OrbitControls } from "@react-three/drei";
 import { characterModelFormatFromFileName } from "@/lib/character-model-formats";
 import { cn } from "@/lib/utils";
 import type { Character, Scene } from "@/lib/types";
-import type { RoomFootprint } from "@/render/SceneEnvironment";
+import { circleRadiusFor, DEFAULT_FOOTPRINT, type RoomFootprint } from "@/render/roomFit";
+import { useIdleAnimationAssetId } from "@/render/useIdleAnimationAsset";
 
 const CharacterFigure = dynamic(
   () => import("@/render/CharacterFigure").then((m) => m.CharacterFigure),
@@ -36,21 +37,6 @@ const SceneEnvironment = dynamic(
   { ssr: false }
 );
 
-// Used until the real room is measured (or when there's no scene model at
-// all, just the plain Ground fallback) — matches the fixed circle this
-// replaced.
-const DEFAULT_FOOTPRINT: RoomFootprint = { width: 3.6, depth: 3.6 };
-// Fraction of the room's own half-extent the cast stands at — comfortably
-// inside the walls without needing to know where the furniture actually is.
-const RADIUS_FRACTION = 0.7;
-const MIN_RADIUS = 1.0;
-const MAX_RADIUS = 3.5;
-
-function circleRadiusFor(footprint: RoomFootprint): number {
-  const halfExtent = Math.min(footprint.width, footprint.depth) / 2;
-  return Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, halfExtent * RADIUS_FRACTION));
-}
-
 function Ground() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -58,34 +44,6 @@ function Ground() {
       <meshLambertMaterial color="#3a3a3a" />
     </mesh>
   );
-}
-
-// A shared library asset used for every character not currently speaking —
-// looked up once per mount rather than per character. Any label containing
-// "idle" is a fair pick; there's no single canonical "the" idle clip.
-function useIdleAnimationAssetId(): string | null {
-  const [assetId, setAssetId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/asset-library?category=animation")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body) => {
-        if (cancelled || !body?.assets) return;
-        const idle = (body.assets as { id: string; name: string }[]).find((a) =>
-          /idle/i.test(a.name)
-        );
-        if (idle) setAssetId(idle.id);
-      })
-      .catch(() => {
-        // No idle clip available — characters just fall back to bind pose.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return assetId;
 }
 
 interface SimulationStageProps {

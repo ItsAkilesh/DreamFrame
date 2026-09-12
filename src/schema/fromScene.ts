@@ -14,7 +14,11 @@ import { MODEL_IDS } from "@/assets/manifest";
 import { PrevisSpecZ, type PrevisSpec } from "@/schema/previsSpec";
 import type { Character as DashboardCharacter, Scene } from "@/lib/types";
 
-const CIRCLE_RADIUS = 1.8;
+// Exported so the Stage can rescale this baked-in layout to match a scene's
+// actual assigned environment model once it's measured client-side (this
+// adapter runs server-side, before any model has loaded) — see
+// CIRCLE_RADIUS's use in Stage.tsx.
+export const CIRCLE_RADIUS = 1.8;
 const PLACEHOLDER_COLORS = ["#e07a5f", "#3d5a80", "#8a5a9e", "#588157", "#bc6c25"];
 
 function estimateDuration(text: string): number {
