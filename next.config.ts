@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Default bottom-left position sits on top of the Editor View's timeline
+  // transport controls (also bottom-left) in dev mode.
+  devIndicators: {
+    position: "top-left",
+  },
 };
 
 export default nextConfig;

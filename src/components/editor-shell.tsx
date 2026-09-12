@@ -7,11 +7,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { Clapperboard } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardPanel } from "@/components/dashboard-panel";
 import { ScriptUploadDialog } from "@/components/script-upload-dialog";
 import { SceneWorkspace } from "@/components/scene-workspace";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -58,6 +61,23 @@ export function EditorShell({ script }: EditorShellProps) {
             </div>
           ) : (
             <span className="text-muted-foreground text-sm">DreamFrame</span>
+          )}
+
+          {script && selectedScene && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-2"
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/editor?scriptId=${script.id}&sceneId=${selectedScene.id}`}
+                />
+              }
+            >
+              <Clapperboard className="size-4" />
+              Editor View
+            </Button>
           )}
         </header>
 

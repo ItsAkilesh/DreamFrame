@@ -1,7 +1,7 @@
 // get-current-script.ts
-// Purpose: Server-side fetch of the most recently created script, serialized
-//          from Mongoose's lean document (ObjectIds) into plain ScriptData
-//          (string ids) the UI components expect.
+// Purpose: Server-side fetch of scripts, serialized from Mongoose's lean
+//          document (ObjectIds) into plain ScriptData (string ids) the UI
+//          components expect.
 // Author: akilesh@vigilnz.com
 // Date: 2026-09-12
 
@@ -13,39 +13,29 @@ interface LeanId {
   _id: { toString(): string };
 }
 
-export async function getCurrentScript(): Promise<ScriptData | null> {
-  await connectToDatabase();
-
-  type LeanScript = {
-    _id: { toString(): string };
+type LeanScript = {
+  _id: { toString(): string };
+  title: string;
+  acts: (LeanId & { title: string; order: number })[];
+  characters: (LeanId & {
+    name: string;
+    motivation: string;
+    traits: string[];
+    baselineEmotion: string;
+    color: string;
+  })[];
+  scenes: (LeanId & {
+    actId: { toString(): string };
+    order: number;
     title: string;
-    acts: (LeanId & { title: string; order: number })[];
-    characters: (LeanId & {
-      name: string;
-      motivation: string;
-      traits: string[];
-      baselineEmotion: string;
-      color: string;
-    })[];
-    scenes: (LeanId & {
-      actId: { toString(): string };
-      order: number;
-      title: string;
-      text: string;
-      toneTarget: string;
-      characterIds: { toString(): string }[];
-      metrics: DashboardMetrics | null;
-    })[];
-  };
+    text: string;
+    toneTarget: string;
+    characterIds: { toString(): string }[];
+    metrics: DashboardMetrics | null;
+  })[];
+};
 
-  const doc = (await ScriptModel.findOne()
-    .sort({ createdAt: -1 })
-    .lean()) as LeanScript | null;
-
-  if (!doc) {
-    return null;
-  }
-
+function serialize(doc: LeanScript): ScriptData {
   const acts: Act[] = doc.acts.map((act) => ({
     id: act._id.toString(),
     title: act.title,
@@ -73,4 +63,16 @@ export async function getCurrentScript(): Promise<ScriptData | null> {
   }));
 
   return { id: doc._id.toString(), title: doc.title, acts, characters, scenes };
+}
+
+export async function getCurrentScript(): Promise<ScriptData | null> {
+  await connectToDatabase();
+  const doc = (await ScriptModel.findOne().sort({ createdAt: -1 }).lean()) as LeanScript | null;
+  return doc ? serialize(doc) : null;
+}
+
+export async function getScriptById(id: string): Promise<ScriptData | null> {
+  await connectToDatabase();
+  const doc = (await ScriptModel.findById(id).lean()) as LeanScript | null;
+  return doc ? serialize(doc) : null;
 }

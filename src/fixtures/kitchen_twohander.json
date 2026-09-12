@@ -1,0 +1,92 @@
+{
+  "version": "0.1",
+  "scene": {
+    "id": "sc_kitchen",
+    "slugline": "INT. APARTMENT KITCHEN - NIGHT",
+    "room": "kitchen",
+    "timeOfDay": "night",
+    "mood": "tense",
+    "toneTarget": "tense, restrained"
+  },
+  "set": {
+    "dimensions": { "w": 6, "d": 5, "h": 3 },
+    "props": [
+      { "id": "table_1", "type": "dining_table", "position": [0, 0, 0], "rotationY": 0, "scale": 1 },
+      { "id": "chair_1", "type": "chair", "position": [-1.1, 0, 0], "rotationY": 1.5708, "scale": 1 },
+      { "id": "chair_2", "type": "chair", "position": [1.1, 0, 0], "rotationY": -1.5708, "scale": 1 }
+    ],
+    "lights": [
+      { "id": "key", "type": "spot", "position": [2, 2.6, 2], "target": [0, 1.4, 0], "intensity": 3.0, "color": "#ffe8c4" },
+      { "id": "fill", "type": "point", "position": [-2, 2, 1.5], "target": [0, 1.4, 0], "intensity": 0.8, "color": "#9fb8ff" },
+      { "id": "amb", "type": "ambient", "position": [0, 2.5, 0], "target": [0, 1.4, 0], "intensity": 0.25, "color": "#ffffff" }
+    ]
+  },
+  "cast": [
+    {
+      "id": "ch_mara", "name": "MARA", "modelId": "f_casual",
+      "position": [-1.1, 0, 0], "rotationY": 1.5708, "posture": "seated",
+      "direction": "holds still, does not look up when she lies", "voiceId": "", "color": "#e07a5f"
+    },
+    {
+      "id": "ch_julian", "name": "JULIAN", "modelId": "m_casual",
+      "position": [1.4, 0, 0.6], "rotationY": -1.9, "posture": "standing",
+      "direction": "restless, can't keep his hands still", "voiceId": "", "color": "#3d5a80"
+    }
+  ],
+  "cameras": [
+    { "id": "cam_a", "label": "Wide", "position": [0, 1.6, 4.2], "lookAt": [0.15, 1.5, 0.3], "lens_mm": 28 },
+    { "id": "cam_b", "label": "OTS Mara", "position": [-2.1, 1.6, 1.8], "lookAt": [1.4, 1.68, 0.6], "lens_mm": 50 },
+    { "id": "cam_c", "label": "OTS Julian", "position": [1.9, 1.6, 1.9], "lookAt": [-1.1, 1.22, 0], "lens_mm": 50 },
+    { "id": "cam_d", "label": "Clean CU Mara", "position": [-0.3, 1.55, 1.5], "lookAt": [-1.1, 1.22, 0], "lens_mm": 85 }
+  ],
+  "beats": [
+    { "id": "b_001", "startTime": 0.0, "duration": 2.4,
+      "line": { "characterId": "ch_julian", "text": "You were going to tell me tomorrow.", "emotion": "controlled anger" },
+      "blocking": [ { "characterId": "ch_julian", "action": "idle", "to": null, "facing": null, "clip": "idle_tense" } ],
+      "shot": { "cameraId": "cam_a", "subjectId": "ch_julian", "move": "static" } },
+    { "id": "b_002", "startTime": 2.4, "duration": 1.8,
+      "line": { "characterId": "ch_mara", "text": "I didn't owe you tomorrow.", "emotion": "guarded" },
+      "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle_tense" } ],
+      "shot": { "cameraId": "cam_b", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_003", "startTime": 4.2, "duration": 2.6,
+      "line": { "characterId": "ch_julian", "text": "You didn't owe me anything, is that it?", "emotion": "hurt" },
+      "blocking": [ { "characterId": "ch_julian", "action": "gesture", "to": null, "facing": null, "clip": "gesture_shrug" } ],
+      "shot": { "cameraId": "cam_c", "subjectId": "ch_julian", "move": "static" } },
+    { "id": "b_004", "startTime": 6.8, "duration": 2.0,
+      "line": { "characterId": "ch_mara", "text": "That's not what I said.", "emotion": "defensive" },
+      "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle" } ],
+      "shot": { "cameraId": "cam_b", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_005", "startTime": 8.8, "duration": 1.6,
+      "line": null,
+      "blocking": [ { "characterId": "ch_julian", "action": "walk", "to": [0.6, 0, 0.9], "facing": null, "clip": "walk_slow" } ],
+      "shot": { "cameraId": "cam_a", "subjectId": "ch_julian", "move": "static" } },
+    { "id": "b_006", "startTime": 10.4, "duration": 2.8,
+      "line": { "characterId": "ch_julian", "text": "Then tell me what you meant.", "emotion": "pleading" },
+      "blocking": [ { "characterId": "ch_julian", "action": "idle", "to": null, "facing": null, "clip": "idle_tense" } ],
+      "shot": { "cameraId": "cam_d", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_007", "startTime": 13.2, "duration": 1.4,
+      "line": { "characterId": "ch_mara", "text": "I meant I was scared.", "emotion": "quiet" },
+      "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle" } ],
+      "shot": { "cameraId": "cam_d", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_008", "startTime": 14.6, "duration": 2.2,
+      "line": { "characterId": "ch_julian", "text": "Scared of me?", "emotion": "wounded" },
+      "blocking": [ { "characterId": "ch_julian", "action": "turn", "to": null, "facing": -1.9, "clip": "turn_left" } ],
+      "shot": { "cameraId": "cam_c", "subjectId": "ch_julian", "move": "static" } },
+    { "id": "b_009", "startTime": 16.8, "duration": 2.0,
+      "line": { "characterId": "ch_mara", "text": "Scared of what happens after.", "emotion": "resigned" },
+      "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle" } ],
+      "shot": { "cameraId": "cam_b", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_010", "startTime": 18.8, "duration": 2.4,
+      "line": { "characterId": "ch_julian", "text": "So don't tell me. Just stay.", "emotion": "soft" },
+      "blocking": [ { "characterId": "ch_julian", "action": "sit", "to": null, "facing": null, "clip": "sit_down" } ],
+      "shot": { "cameraId": "cam_a", "subjectId": "ch_julian", "move": "static" } },
+    { "id": "b_011", "startTime": 21.2, "duration": 1.8,
+      "line": null,
+      "blocking": [ { "characterId": "ch_mara", "action": "gesture", "to": null, "facing": null, "clip": "gesture_shrug" } ],
+      "shot": { "cameraId": "cam_a", "subjectId": "ch_mara", "move": "static" } },
+    { "id": "b_012", "startTime": 23.0, "duration": 2.6,
+      "line": { "characterId": "ch_mara", "text": "Okay. I'll stay.", "emotion": "warm" },
+      "blocking": [ { "characterId": "ch_mara", "action": "idle", "to": null, "facing": null, "clip": "idle" } ],
+      "shot": { "cameraId": "cam_d", "subjectId": "ch_mara", "move": "static" } }
+  ]
+}
